@@ -2,19 +2,19 @@
 A script for i3 window manager to have one global drop-down terminal window toggleable by a hotkey.
 
 # Installation
-Just drop `quake-terminal.py` somewhere a create some keybinds for it in your i3 config.
+Just drop `quake-terminal.py` somewhere and create some keybinds to launch it in your i3 config.
 
 ## Requirements
-Requires `i3ipc` package.  
+Requires `i3ipc` package ([PyPI](https://pypi.org/project/i3ipc/), [GitHub](https://github.com/altdesktop/i3ipc-python)).  
 
 Fellow Fedora enjoyers:  
 `sudo dnf install python3-i3ipc`
 
-For other distros, consult your package manager repos, or install via pip:  
+For other distros, consult your package manager repos, or install via `pip`:  
 `python -m pip install i3ipc`
 
 # Usage
-The script will create a single sticky terminal window on specified monitor, toggleable via hotkey.  
+The script will create a single sticky terminal window on specified monitor, toggleable via hotkey. The first call will launch show the window, the second call will hide it. If the window is closed, subsequent call will create it again.    
 Available settings:
 ```
 $ quake-terminal.py -?
@@ -54,14 +54,14 @@ Any unrecognized arguments are passed as is to the terminal emulator. To prevent
 Suggested usage: a quickly accessible general terminal window, or `htop` as a task manager. Feel free to invent your own uses!
 
 ## Terminal configuration
-This script only really supports `urxvt` (as it's _the_ terminal emulator I use). "generic" option might work for you if:
+This script only really supports `urxvt` (as it's _the_ terminal emulator I use). "generic" option might work for other terminal emulators if:
 - `i3-sensible-terminal` launches your terminal emulator
-- your terminal emulator supports `-T` as argument to set window title
+- your terminal emulator supports `-T` as an argument to set window title
 
-Otherwise, please extend the script to work with any other terminal emulator. See `terminals` dict in the configuration section.
+Otherwise, please extend the script to work with another terminal emulator. See `terminals` dict in the configuration section.
 
 ## Flickering
-As stated in help message, to prevent terminal window first appearing in default position, add a rule to i3 config to move it to the scratchpad by default.  
+As stated in help message, to prevent terminal window first appearing in default position and visibly teleporting, add a rule to i3 config to move it to the scratchpad by default.  
 An example for default settings, an `urxvt` window called "The terminal":
 ```
 for_window [class="URxvt" title="The terminal"] move scratchpad
