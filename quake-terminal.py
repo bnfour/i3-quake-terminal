@@ -23,7 +23,7 @@ except ImportError:
 
 #region configuration
 
-version: Final = '2.0'
+version: Final = '2.1'
 
 class Defaults(object):
     """
