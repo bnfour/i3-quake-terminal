@@ -11,6 +11,7 @@ import argparse
 import os
 import sys
 import time
+from typing import NamedTuple, Final
 
 try:
     import i3ipc
@@ -18,13 +19,11 @@ except ImportError:
     print('i3ipc module not found. Exiting.')
     sys.exit(1)
 
-from typing import NamedTuple, Final
-
 #endregion
 
 #region configuration
 
-version: Final = "2.0"
+version: Final = '2.1'
 
 class Defaults(object):
     """
@@ -61,7 +60,10 @@ terminals: Final = {
 }
 
 def get_args() -> tuple[argparse.Namespace, list[str]]:
-
+    """
+    Returns parsed arguments for the script itself,
+    and a list of unrecognized arguments to be passed to the terminal emulator as is.
+    """
     parser = argparse.ArgumentParser(add_help=False,
                 description='A script to have one global terminal window toggleable by a hotkey.',
                 epilog='Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad',
@@ -109,7 +111,11 @@ def get_args() -> tuple[argparse.Namespace, list[str]]:
 #endregion
 
 def main(config: argparse.Namespace, arguments_to_pass: list[str]):
-
+    """
+    Main entry point of the script.
+    Toggles the visibility of the terminal emulator window if it's present;
+    otherwise, creates a new one and shows it.
+    """
     i3 = i3ipc.Connection()
     window_tag = generate_window_tag(config.name)
 
@@ -135,7 +141,7 @@ def main(config: argparse.Namespace, arguments_to_pass: list[str]):
         else:
             term_by_name = None
             # wait for the terminal to appear for a second
-            for i in range(10):
+            for _ in range(10):
                 time.sleep(0.1)
                 term_by_name = i3.get_tree().find_titled(config.name)
                 if term_by_name:
@@ -151,16 +157,18 @@ def main(config: argparse.Namespace, arguments_to_pass: list[str]):
             term_by_name[0].command(f'mark {window_tag}')
             show(term_by_name[0], i3, config)
 
+#region window manipulation code
+
 def toggle(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
     """
-    Toggles the terminal state, shows or hides it.
-    Can be configured to focus the terminal window first before closing on
-    a subsequent call.
+    Toggles the terminal visibility state.
+    Can be configured to focus the visible terminal window first
+    before closing on a subsequent call when it's focused.
     """
     if in_scratchpad(window):
         show(window, i3, config)
     else:
-        if not window.focused and config.focus_first:
+        if config.focus_first and not window.focused:
             focus(window)
         else:
             hide(window)
@@ -168,7 +176,7 @@ def toggle(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
 def show(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
     """
     Calls internal methods required to calculate the terminal window position
-    and size and show it there
+    and size and show it there.
     """
     output_position, output_size = get_output_properties(config.output, i3)
     output_width, output_height = output_size
@@ -185,10 +193,14 @@ def show(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
     show_internal(window, window_position, window_size)
 
 def show_internal(window: i3ipc.Con, position: tuple[int, int], size: tuple[int, int]):
-    """Actually moves and resizes the window to dimensions specified"""
+    """
+    Actually moves and resizes the window to dimensions specified.
+    Sticky mode is applied only if not already set.
+    """
     x, y = position
     w, h = size
-    window.command('scratchpad show, sticky enable,'
+    sticky_command = '' if window.sticky else 'sticky enable,'
+    window.command(f'scratchpad show, {sticky_command}'
         + f' resize set {w}px {h}px, move position {x}px {y}px')
 
 def focus(window: i3ipc.Con):
@@ -202,7 +214,7 @@ def hide(window: i3ipc.Con):
 def get_output_properties(name: str, i3: i3ipc.Connection) -> tuple[tuple[int, int], tuple[int, int]]:
     """
     Gets dimensions of a physical output by given name, or special 'main' value
-    that specifies the primary output, whatever its name is.
+    that specifies the primary output, whatever its actual name is.
     Returns output's dimesions as ((x position, y position), (width, height))
     """
     outputs = i3.get_outputs()
@@ -255,6 +267,7 @@ def generate_window_tag(name: str) -> str:
     """
     return '_bnqi3_' + name.lower().replace(' ', '_')
 
+#endregion
 
 if __name__ == '__main__':
     main(*get_args())
