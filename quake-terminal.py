@@ -188,7 +188,8 @@ def show_internal(window: i3ipc.Con, position: tuple[int, int], size: tuple[int,
     """Actually moves and resizes the window to dimensions specified"""
     x, y = position
     w, h = size
-    window.command('scratchpad show, sticky enable,'
+    sticky_command = '' if window.sticky else 'sticky enable,'
+    window.command(f'scratchpad show, {sticky_command}'
         + f' resize set {w}px {h}px, move position {x}px {y}px')
 
 def focus(window: i3ipc.Con):
