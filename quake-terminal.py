@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 # a script for i3 to have one global terminal available on hotkey,
-# now with typing!!!1
+# now with almost proper typing (as in "# type: ignore" interfacing with code outside of standard library)
 
 # requires python3-i3ipc package
 
@@ -17,7 +17,7 @@ import time
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import cast, Final, NamedTuple, Self
+from typing import cast
 
 try:
     import i3ipc
@@ -26,6 +26,8 @@ except ImportError:
     sys.exit(1)
 
 #endregion
+
+version= '2.1.1'
 
 #region definitions
 
@@ -84,8 +86,6 @@ class Offset(object):
     x: int
     y: int
 
-    def __add__(self, another: Self):
-        return Offset(self.x + another.x, self.y + another.y)
 
 @dataclass
 class Position(object):
@@ -94,13 +94,16 @@ class Position(object):
     y: int
 
     def __add__(self, offset: Offset):
+        """Moves a position by a given offset"""
         return Position(self.x + offset.x, self.y + offset.y)
+
 
 @dataclass
 class SizeMultiplier(object):
     """Represents size ratios between two screen areas, independent by axis"""
     width_multiplier: float
     height_multiplier: float
+
 
 @dataclass
 class Size(object):
@@ -109,7 +112,9 @@ class Size(object):
     height: int
 
     def __mul__(self, mult: SizeMultiplier):
+        """Applies a multiplier for the size"""
         return Size(int(self.width * mult.width_multiplier), int(self.height * mult.height_multiplier))
+
 
 @dataclass
 class Region(object):
@@ -119,10 +124,14 @@ class Region(object):
 
 #endregion
 
-class Terminal(NamedTuple):
+#region definitions -> misc
+
+@dataclass
+class Terminal(object):
     """Holds settings for a terminal used in this script"""
     executable: str
     title_command: str
+
 
 @dataclass
 class TypedConfig(object):
@@ -156,13 +165,14 @@ class TypedConfig(object):
 
 #endregion
 
+#endregion
+
 #region configuration
 
-# TODO increment
-version: Final = '2.1'
+# TODO consider moving those outside of global scope
 
 # terminal emulators supported by the script
-terminals: Final = {
+terminals = {
     # generic may work if the terminal does support -T,
     # the proper way is to provide a definition for your favourite terminal emulator
     'generic': Terminal('i3-sensible-terminal', '-T'),
@@ -184,7 +194,8 @@ defaults = TypedConfig(
 
 #endregion
 
-# TODO return typed config
+#region argparse setup
+
 def get_args() -> tuple[TypedConfig, list[str]]:
     """
     Returns parsed arguments for the script itself,
@@ -207,6 +218,7 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     height_group.add_argument('--relative-height', '-rh', type=float, dest='height_ratio',
         help='set the terminal window height relative to the output height')
 
+    # for argparse, these are strings, enum conversion is done in TypedConfig, hence the .name.lower() bit
     parser.add_argument('--horizontal', '-x', choices=HorizontalAlignment.allowed(), default=defaults.horizontal_anchor.name.lower(),
         help='set the terminal window\'s horizontal align')
     parser.add_argument('--vertical', '-y', choices=VerticalAlignment.allowed(), default=defaults.vertical_anchor.name.lower(),
@@ -224,7 +236,7 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     # moving it in case it was open somewhere else
     parser.add_argument('--output', '-o', default=defaults.output,
         help='set the terminal window\'s output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output')
-    # TODO user-friendly term names are not stored in defaults itself, so this is awkward
+    # user-friendly term names are not stored in defaults itself, so this is awkward
     parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=[k for k, v in terminals.items() if v.executable == defaults.terminal.executable][0],
         help='terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal')
     parser.add_argument('--name', '-n', default=defaults.window_title,
@@ -257,14 +269,13 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     else:
         pid = os.fork()
         if pid != 0:
-            name, title_command = config.terminal
-            arguments = [name, title_command, config.window_title,]
+            arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
             if arguments_to_pass:
                 arguments.extend(arguments_to_pass)
             try:
-                os.execvp(name, arguments)
+                os.execvp(config.terminal.executable, arguments)
             except FileNotFoundError as e:
-                print(f'Unable to run "{name}": {e.strerror}')
+                print(f'Unable to run "{config.terminal.executable}": {e.strerror}')
                 sys.exit(1)
         else:
             term_by_name = None
