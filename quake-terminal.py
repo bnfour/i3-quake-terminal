@@ -14,7 +14,7 @@ import time
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import cast, Final, Self
+from typing import cast, Final, NamedTuple, Self
 
 try:
     import i3ipc
@@ -116,8 +116,7 @@ class Region(object):
 
 #endregion
 
-@dataclass
-class Terminal(object):
+class Terminal(NamedTuple):
     """Holds settings for a terminal used in this script"""
     executable: str
     title_command: str
@@ -236,14 +235,14 @@ def get_args() -> tuple[TypedConfig, list[str]]:
 
 #endregion
 
-def main(config: argparse.Namespace, arguments_to_pass: list[str]):
+def main(config: TypedConfig, arguments_to_pass: list[str]):
     """
     Main entry point of the script.
     Toggles the visibility of the terminal emulator window if it's present;
     otherwise, creates a new one and shows it.
     """
     i3 = i3ipc.Connection()
-    window_tag = generate_window_tag(config.name)
+    window_tag = generate_window_tag(config.window_title)
 
     term_by_tag = i3.get_tree().find_marked(window_tag)
     if term_by_tag:
@@ -255,8 +254,8 @@ def main(config: argparse.Namespace, arguments_to_pass: list[str]):
     else:
         pid = os.fork()
         if pid != 0:
-            name, title_command = terminals[config.terminal]
-            arguments = [name, title_command, config.name,]
+            name, title_command = config.terminal
+            arguments = [name, title_command, config.window_title,]
             if arguments_to_pass:
                 arguments.extend(arguments_to_pass)
             try:
@@ -269,15 +268,15 @@ def main(config: argparse.Namespace, arguments_to_pass: list[str]):
             # wait for the terminal to appear for a second
             for _ in range(10):
                 time.sleep(0.1)
-                term_by_name = i3.get_tree().find_titled(config.name)
+                term_by_name = i3.get_tree().find_titled(config.window_title)
                 if term_by_name:
                     break
             else:
-                print(f'Unable to find a window with title "{config.name}" after waiting. Giving up.')
+                print(f'Unable to find a window with title "{config.window_title}" after waiting. Giving up.')
                 sys.exit(1)
 
             if len(term_by_name) != 1:
-                print(f'Multiple windows with title "{config.name}" detected. Please use --name to set an unique one.')
+                print(f'Multiple windows with title "{config.window_title}" detected. Please use --name to set an unique one.')
                 sys.exit(1)
 
             term_by_name[0].command(f'mark {window_tag}')
