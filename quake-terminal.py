@@ -76,25 +76,37 @@ class VerticalAlignment(Enum):
 
 #region definitions -> screen/window positioning classes
 
-# TODO relevant operators for these, comments
+class Offset(NamedTuple):
+    """Represents distance between two positions on the screen"""
+    x: int
+    y: int
+
+    def __add__(self, another: Self) -> Self:
+        return Offset(self.x + another.x, self.y + another.y)
 
 class Position(NamedTuple):
+    """Represents a position on the screen"""
     x: int
     y: int
 
-class Offset(NamedTuple):
-    x: int
-    y: int
-
-class Size(NamedTuple):
-    width: int
-    height: int
+    def __add__(self, offset: Offset) -> Self:
+        return Position(self.x + offset.x, self.y + offset.y)
 
 class SizeMultiplier(NamedTuple):
+    """Represents size ratios between two screen areas, independent by axis"""
     width_multiplier: float
     height_multiplier: float
 
+class Size(NamedTuple):
+    """Represents size of an area on the screen"""
+    width: int
+    height: int
+
+    def __mul__(self, mult: SizeMultiplier) -> Self:
+        return Size(int(self.width * mult.width_multiplier), int(self.height * mult.height_multiplier))
+
 class Region(NamedTuple):
+    """Represents an area of the screen: a window, a display, an arbitrary rectangle"""
     position: Position
     size: Size
 
