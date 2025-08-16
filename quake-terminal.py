@@ -13,7 +13,8 @@ import sys
 import time
 
 from enum import Enum
-from typing import NamedTuple, Final, Self
+from dataclasses import dataclass
+from typing import cast, Final, Self
 
 try:
     import i3ipc
@@ -32,13 +33,12 @@ class HorizontalAlignment(Enum):
     Centre = 2
     Right = 3
 
-    @property
     @staticmethod
-    def allowed() -> tuple[str]:
+    def allowed() -> tuple[str, ...]:
         return ('left', 'l', 'centre', 'center', 'c', 'right', 'r')
     
     @staticmethod
-    def from_string(string: str) -> Self:
+    def from_string(string: str):
         match string.lower()[0]:
             case 'l':
                 return HorizontalAlignment.Left
@@ -55,13 +55,12 @@ class VerticalAlignment(Enum):
     Centre = 2
     Bottom = 3
 
-    @property
     @staticmethod
-    def allowed() -> tuple[str]:
+    def allowed() -> tuple[str, ...]:
         return ('top', 't', 'centre', 'center', 'c', 'bottom', 'b')
     
     @staticmethod
-    def from_string(string: str) -> Self:
+    def from_string(string: str):
         match string.lower()[0]:
             case 't':
                 return VerticalAlignment.Top
@@ -76,48 +75,55 @@ class VerticalAlignment(Enum):
 
 #region definitions -> screen/window positioning classes
 
-class Offset(NamedTuple):
+@dataclass
+class Offset(object):
     """Represents distance between two positions on the screen"""
     x: int
     y: int
 
-    def __add__(self, another: Self) -> Self:
+    def __add__(self, another: Self):
         return Offset(self.x + another.x, self.y + another.y)
 
-class Position(NamedTuple):
+@dataclass
+class Position(object):
     """Represents a position on the screen"""
     x: int
     y: int
 
-    def __add__(self, offset: Offset) -> Self:
+    def __add__(self, offset: Offset):
         return Position(self.x + offset.x, self.y + offset.y)
 
-class SizeMultiplier(NamedTuple):
+@dataclass
+class SizeMultiplier(object):
     """Represents size ratios between two screen areas, independent by axis"""
     width_multiplier: float
     height_multiplier: float
 
-class Size(NamedTuple):
+@dataclass
+class Size(object):
     """Represents size of an area on the screen"""
     width: int
     height: int
 
-    def __mul__(self, mult: SizeMultiplier) -> Self:
+    def __mul__(self, mult: SizeMultiplier):
         return Size(int(self.width * mult.width_multiplier), int(self.height * mult.height_multiplier))
 
-class Region(NamedTuple):
+@dataclass
+class Region(object):
     """Represents an area of the screen: a window, a display, an arbitrary rectangle"""
     position: Position
     size: Size
 
 #endregion
 
-class Terminal(NamedTuple):
+@dataclass
+class Terminal(object):
     """Holds settings for a terminal used in this script"""
     executable: str
     title_command: str
 
-class TypedConfig(NamedTuple):
+@dataclass
+class TypedConfig(object):
     """Holds typed settings for the script for ease of access"""
     size: Size | SizeMultiplier
     extra_offset: Offset
@@ -130,7 +136,7 @@ class TypedConfig(NamedTuple):
     focus_first: bool
 
     @staticmethod
-    def from_namespace(namespace: argparse.Namespace) -> Self:
+    def from_namespace(namespace: argparse.Namespace):
         if namespace.height_ratio is not None and namespace.width_ratio is not None:
             size = SizeMultiplier(namespace.width_ratio, namespace.height_ratio)
         else:
@@ -177,7 +183,7 @@ defaults = TypedConfig(
 #endregion
 
 # TODO return typed config
-def get_args() -> tuple[argparse.Namespace, list[str]]:
+def get_args() -> tuple[TypedConfig, list[str]]:
     """
     Returns parsed arguments for the script itself,
     and a list of unrecognized arguments to be passed to the terminal emulator as is.
@@ -188,25 +194,25 @@ def get_args() -> tuple[argparse.Namespace, list[str]]:
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     width_group = parser.add_mutually_exclusive_group()
-    width_group.add_argument('--width', '-w', type=int, default=defaults.width,
+    width_group.add_argument('--width', '-w', type=int, default=cast(Size, defaults.size).width,
         help='set the terminal window width, in pixels')
     width_group.add_argument('--relative-width', '-rw', type=float, dest='width_ratio',
         help='set the terminal window width relative to the output width')
 
     height_group = parser.add_mutually_exclusive_group()
-    height_group.add_argument('--height', '-h', type=int, default=defaults.height,
+    height_group.add_argument('--height', '-h', type=int, default=cast(Size, defaults.size).height,
         help='set the terminal window height, in pixels')
     height_group.add_argument('--relative-height', '-rh', type=float, dest='height_ratio',
         help='set the terminal window height relative to the output height')
 
-    parser.add_argument('--horizontal', '-x', choices=HorizontalAlignment.allowed, default=defaults.horizontal,
+    parser.add_argument('--horizontal', '-x', choices=HorizontalAlignment.allowed(), default=defaults.horizontal_anchor,
         help='set the terminal window\'s horizontal align')
-    parser.add_argument('--vertical', '-y', choices=VerticalAlignment.allowed, default=defaults.vertical,
+    parser.add_argument('--vertical', '-y', choices=VerticalAlignment.allowed(), default=defaults.vertical_anchor,
         help='set the terminal window\'s vertical align')
 
-    parser.add_argument('--offset-horizontal', '-oh', '-ox', type=int, dest='offset_x', default=defaults.offset_x,
+    parser.add_argument('--offset-horizontal', '-oh', '-ox', type=int, dest='offset_x', default=defaults.extra_offset.x,
         help='horizontal offset for the terminal window, in pixels; positive values move to the right')
-    parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=defaults.offset_y,
+    parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=defaults.extra_offset.y,
         help='vertical offset for the terminal window, in pixels; positive values move down')
 
     parser.add_argument('--focus-first', '-f', dest='focus_first', action="store_true",
@@ -219,13 +225,14 @@ def get_args() -> tuple[argparse.Namespace, list[str]]:
     # TODO user-friendly term names are not stored in defaults itself, so this is awkward
     parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=[k for k, v in terminals.items() if v.executable == defaults.terminal.executable][0],
         help='terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal')
-    parser.add_argument('--name', '-n', default=defaults.name,
+    parser.add_argument('--name', '-n', default=defaults.window_title,
         help=f'set the terminal window name. Should be unique for the script to work')
 
     parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3 quake-like terminal {version}")
     parser.add_argument('--help', '-?', action='help', help="show this help message and exit")
 
-    return parser.parse_known_args()
+    namespace, to_pass = parser.parse_known_args()
+    return (TypedConfig.from_namespace(namespace), to_pass)
 
 #endregion
 
