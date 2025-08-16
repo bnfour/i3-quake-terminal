@@ -284,7 +284,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
 
 #region window manipulation code
 
-def toggle(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
+def toggle(window: i3ipc.Con, i3: i3ipc.Connection, config: TypedConfig):
     """
     Toggles the terminal visibility state.
     Can be configured to focus the visible terminal window first
@@ -293,7 +293,7 @@ def toggle(window: i3ipc.Con, i3: i3ipc.Connection, config: argparse.Namespace):
     if in_scratchpad(window):
         show(window, i3, config)
     else:
-        if config.focus_first and not window.focused:
+        if config.focus_first and not window.focused: # type: ignore
             focus(window)
         else:
             hide(window)
