@@ -76,7 +76,7 @@ class VerticalAlignment(Enum):
 
 #region definitions -> screen/window positioning classes
 
-# TODO relevant operators for these 
+# TODO relevant operators for these, comments
 
 class Position(NamedTuple):
     x: int
@@ -106,6 +106,7 @@ class Terminal(NamedTuple):
     title_command: str
 
 class TypedConfig(NamedTuple):
+    """Holds typed settings for the script for ease of access"""
     size: Size | SizeMultiplier
     extra_offset: Offset
     horizontal_anchor: HorizontalAlignment
@@ -116,42 +117,52 @@ class TypedConfig(NamedTuple):
     terminal: Terminal
     focus_first: bool
 
+    @staticmethod
+    def from_namespace(namespace: argparse.Namespace) -> Self:
+        if namespace.height_ratio is not None and namespace.width_ratio is not None:
+            size = SizeMultiplier(namespace.width_ratio, namespace.height_ratio)
+        else:
+            size = Size(namespace.width, namespace.height)
+        
+        offset = Offset(namespace.offset_x, namespace.offset_y)
+        h_anchor = HorizontalAlignment.from_string(namespace.horizontal)
+        v_anchor = VerticalAlignment.from_string(namespace.vertical)
+        output = namespace.output
+        title = namespace.name
+        term = terminals[namespace.terminal]
+        focus_first = namespace.focus_first
+
+        return TypedConfig(size, offset, h_anchor, v_anchor, output, title, term, focus_first)
+
 #endregion
 
 #region configuration
 
+# TODO increment
 version: Final = '2.1'
 
-# TODO convert to a TypedConfig instance
-class Defaults(object):
-    """
-    Holds default settings for the script.
-    The default values is the one I use, so I can provide less arguments on launch ('-^)b
-    """
-    width: Final = 1280
-    height: Final = 720
-    output: Final = 'main'
-    horizontal: Final = 'centre'
-    vertical: Final = 'top'
-    name: Final = 'The terminal'
-    terminal: Final = 'urxvt'
-    offset_x: Final = 0
-    offset_y: Final = 0
-    # --focus-first being false by default is implied by its argument definition
-    # relative width and height is not set by default
-
-# TODO remove
-class Allowed(object):
-    """Holds list of values accepted by some of the options"""
-    horizontal: Final = ('left', 'l', 'centre', 'c', 'right', 'r')
-    vertical: Final = ('top', 't', 'centre', 'c', 'bottom', 'b')
-
+# terminal emulators supported by the script
 terminals: Final = {
     # generic may work if the terminal does support -T,
     # the proper way is to provide a definition for your favourite terminal emulator
     'generic': Terminal('i3-sensible-terminal', '-T'),
     'urxvt': Terminal('urxvt', '-title'),
 }
+
+# default settings for the script
+# the values that I use so so I can write less arguments ('-^)b
+defaults = TypedConfig(
+    Size(1280, 720),
+    Offset(0, 0),
+    HorizontalAlignment.Centre,
+    VerticalAlignment.Top,
+    'main',
+    'The terminal',
+    terminals['urxvt'],
+    False
+)
+
+#endregion
 
 # TODO return typed config
 def get_args() -> tuple[argparse.Namespace, list[str]]:
@@ -165,25 +176,25 @@ def get_args() -> tuple[argparse.Namespace, list[str]]:
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     width_group = parser.add_mutually_exclusive_group()
-    width_group.add_argument('--width', '-w', type=int, default=Defaults.width,
+    width_group.add_argument('--width', '-w', type=int, default=defaults.width,
         help='set the terminal window width, in pixels')
     width_group.add_argument('--relative-width', '-rw', type=float, dest='width_ratio',
         help='set the terminal window width relative to the output width')
 
     height_group = parser.add_mutually_exclusive_group()
-    height_group.add_argument('--height', '-h', type=int, default=Defaults.height,
+    height_group.add_argument('--height', '-h', type=int, default=defaults.height,
         help='set the terminal window height, in pixels')
     height_group.add_argument('--relative-height', '-rh', type=float, dest='height_ratio',
         help='set the terminal window height relative to the output height')
 
-    parser.add_argument('--horizontal', '-x', choices=Allowed.horizontal, default=Defaults.horizontal,
+    parser.add_argument('--horizontal', '-x', choices=HorizontalAlignment.allowed, default=defaults.horizontal,
         help='set the terminal window\'s horizontal align')
-    parser.add_argument('--vertical', '-y', choices=Allowed.vertical, default=Defaults.vertical,
+    parser.add_argument('--vertical', '-y', choices=VerticalAlignment.allowed, default=defaults.vertical,
         help='set the terminal window\'s vertical align')
 
-    parser.add_argument('--offset-horizontal', '-oh', '-ox', type=int, dest='offset_x', default=Defaults.offset_x,
+    parser.add_argument('--offset-horizontal', '-oh', '-ox', type=int, dest='offset_x', default=defaults.offset_x,
         help='horizontal offset for the terminal window, in pixels; positive values move to the right')
-    parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=Defaults.offset_y,
+    parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=defaults.offset_y,
         help='vertical offset for the terminal window, in pixels; positive values move down')
 
     parser.add_argument('--focus-first', '-f', dest='focus_first', action="store_true",
@@ -191,11 +202,12 @@ def get_args() -> tuple[argparse.Namespace, list[str]]:
 
     # TODO (very maybe): implement a 'focused' keyword to open the terminal the output with the currently active workspace,
     # moving it in case it was open somewhere else
-    parser.add_argument('--output', '-o', default=Defaults.output,
+    parser.add_argument('--output', '-o', default=defaults.output,
         help='set the terminal window\'s output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output')
-    parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=Defaults.terminal,
+    # TODO user-friendly term names are not stored in defaults itself, so this is awkward
+    parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=[k for k, v in terminals.items() if v.executable == defaults.terminal.executable][0],
         help='terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal')
-    parser.add_argument('--name', '-n', default=Defaults.name,
+    parser.add_argument('--name', '-n', default=defaults.name,
         help=f'set the terminal window name. Should be unique for the script to work')
 
     parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3 quake-like terminal {version}")
