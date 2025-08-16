@@ -17,7 +17,6 @@ import time
 
 from enum import Enum
 from dataclasses import dataclass
-from operator import attrgetter
 from typing import cast, Final, NamedTuple, Self
 
 try:
@@ -358,7 +357,7 @@ def get_output_properties(name: str, i3: i3ipc.Connection) -> Region:
     
     rect = filtered[0].rect # type: ignore
 
-    return Region(Position(rect.x, rect.y), Size(rect.width, rect.height))
+    return Region(Position(rect.x, rect.y), Size(rect.width, rect.height)) # type: ignore
 
 def get_position(output: Region, window_size: Size, window_offset: Offset,
         h_anchor: HorizontalAlignment, v_anchor: VerticalAlignment) -> Position:
@@ -385,7 +384,7 @@ def get_position(output: Region, window_size: Size, window_offset: Offset,
 
 def in_scratchpad(window: i3ipc.Con) -> bool:
     """Determines whether the provided window is off-screen in scratchpad"""
-    return window.ipc_data['output'] == '__i3'
+    return cast(str, window.ipc_data['output']) == '__i3'
 
 def generate_window_tag(name: str) -> str:
     """
