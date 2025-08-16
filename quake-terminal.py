@@ -11,7 +11,9 @@ import argparse
 import os
 import sys
 import time
-from typing import NamedTuple, Final
+
+from enum import Enum
+from typing import NamedTuple, Final, Self
 
 try:
     import i3ipc
@@ -21,10 +23,106 @@ except ImportError:
 
 #endregion
 
+#region definitions
+
+#region definitions -> anchor enums
+
+class HorizontalAlignment(Enum):
+    Left = 1
+    Centre = 2
+    Right = 3
+
+    @property
+    @staticmethod
+    def allowed() -> tuple[str]:
+        return ('left', 'l', 'centre', 'center', 'c', 'right', 'r')
+    
+    @staticmethod
+    def from_string(string: str) -> Self:
+        match string.lower()[0]:
+            case 'l':
+                return HorizontalAlignment.Left
+            case 'c':
+                return HorizontalAlignment.Centre
+            case 'r':
+                return HorizontalAlignment.Right
+            case _:
+                raise Exception('Unknown string passed, should never happen.')
+
+
+class VerticalAlignment(Enum):
+    Top = 1
+    Centre = 2
+    Bottom = 3
+
+    @property
+    @staticmethod
+    def allowed() -> tuple[str]:
+        return ('top', 't', 'centre', 'center', 'c', 'bottom', 'b')
+    
+    @staticmethod
+    def from_string(string: str) -> Self:
+        match string.lower()[0]:
+            case 't':
+                return VerticalAlignment.Top
+            case 'c':
+                return VerticalAlignment.Centre
+            case 'b':
+                return VerticalAlignment.Bottom
+            case _:
+                raise Exception('Unknown string passed, should never happen.')
+
+#endregion
+
+#region definitions -> screen/window positioning classes
+
+# TODO relevant operators for these 
+
+class Position(NamedTuple):
+    x: int
+    y: int
+
+class Offset(NamedTuple):
+    x: int
+    y: int
+
+class Size(NamedTuple):
+    width: int
+    height: int
+
+class SizeMultiplier(NamedTuple):
+    width_multiplier: float
+    height_multiplier: float
+
+class Region(NamedTuple):
+    position: Position
+    size: Size
+
+#endregion
+
+class Terminal(NamedTuple):
+    """Holds settings for a terminal used in this script"""
+    executable: str
+    title_command: str
+
+class TypedConfig(NamedTuple):
+    size: Size | SizeMultiplier
+    extra_offset: Offset
+    horizontal_anchor: HorizontalAlignment
+    vertical_anchor: VerticalAlignment
+    
+    output: str
+    window_title: str
+    terminal: Terminal
+    focus_first: bool
+
+#endregion
+
 #region configuration
 
 version: Final = '2.1'
 
+# TODO convert to a TypedConfig instance
 class Defaults(object):
     """
     Holds default settings for the script.
@@ -42,15 +140,11 @@ class Defaults(object):
     # --focus-first being false by default is implied by its argument definition
     # relative width and height is not set by default
 
+# TODO remove
 class Allowed(object):
     """Holds list of values accepted by some of the options"""
     horizontal: Final = ('left', 'l', 'centre', 'c', 'right', 'r')
     vertical: Final = ('top', 't', 'centre', 'c', 'bottom', 'b')
-
-class Terminal(NamedTuple):
-    """Holds settings for a terminal used in this script"""
-    executable: str
-    title_command: str
 
 terminals: Final = {
     # generic may work if the terminal does support -T,
@@ -59,6 +153,7 @@ terminals: Final = {
     'urxvt': Terminal('urxvt', '-title'),
 }
 
+# TODO return typed config
 def get_args() -> tuple[argparse.Namespace, list[str]]:
     """
     Returns parsed arguments for the script itself,
