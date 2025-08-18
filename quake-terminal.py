@@ -331,13 +331,18 @@ def show(window: i3ipc.Con, i3: i3ipc.Connection, config: TypedConfig):
     output_region = get_output_properties(config.output, i3)
 
     window_size = config.size.apply_to(output_region.size)
+    
+    # dealing with borders is a bit tricky
+
     # i3ipc.Con.rect.height is larger than target size
-    # and this breaks the bottom anchor, so we store the value
+    # and this affect the bottom anchor, so we store the value
     # and compensate for it when needed
     height_diff = cast(int, window.rect.height) - window_size.height # type: ignore
+    # we need to take the border width into account when centering horizontally
+    border_width = cast(int, window.window_rect.x) # type: ignore
 
     window_position = get_position(output_region, window_size, config.extra_offset,
-        config.horizontal_anchor, config.vertical_anchor, height_diff)
+        config.horizontal_anchor, config.vertical_anchor, height_diff, border_width)
 
     window_region = Region(window_position, window_size)
 
@@ -381,14 +386,15 @@ def get_output_properties(name: str, i3: i3ipc.Connection) -> Region:
     return Region(Position(rect.x, rect.y), Size(rect.width, rect.height)) # type: ignore
 
 def get_position(output: Region, window_size: Size, window_offset: Offset,
-        h_anchor: HorizontalAlignment, v_anchor: VerticalAlignment, extra_offset_for_bottom: int) -> Position:
+        h_anchor: HorizontalAlignment, v_anchor: VerticalAlignment,
+        extra_offset_for_bottom: int, border_width: int) -> Position:
     """Calculates the position for the terminal window per configuration provided"""
 
     match h_anchor:
         case HorizontalAlignment.Left:
             x = output.position.x
         case HorizontalAlignment.Centre:
-            x = output.position.x + (output.size.width - window_size.width) // 2
+            x = output.position.x + (output.size.width - window_size.width) // 2 + border_width
         case HorizontalAlignment.Right:
             x = output.position.x + output.size.width - window_size.width
     
