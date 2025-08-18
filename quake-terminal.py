@@ -218,13 +218,13 @@ def get_args() -> tuple[TypedConfig, list[str]]:
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     width_group = parser.add_mutually_exclusive_group()
-    width_group.add_argument('--width', '-w', type=int, default=cast(Size, defaults.size).width,
+    width_group.add_argument('--width', '-w', type=int, default=defaults.size.width,
         help='set the terminal window width, in pixels')
     width_group.add_argument('--relative-width', '-rw', type=float, dest='width_ratio',
         help='set the terminal window width relative to the output width')
 
     height_group = parser.add_mutually_exclusive_group()
-    height_group.add_argument('--height', '-h', type=int, default=cast(Size, defaults.size).height,
+    height_group.add_argument('--height', '-h', type=int, default=defaults.size.height,
         help='set the terminal window height, in pixels')
     height_group.add_argument('--relative-height', '-rh', type=float, dest='height_ratio',
         help='set the terminal window height relative to the output height')
