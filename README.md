@@ -39,7 +39,7 @@ for_window [class="URxvt" title="The terminal"] move scratchpad
 Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
 
 ## Configuration
-The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable default values, so the script will work out of the box without any arguments (assuming you use `rxvt-unicode`).
+The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box without any arguments (assuming you use `rxvt-unicode` as a terminal emulator).
 
 ## Available settings
 Output of built-in help command:
@@ -81,7 +81,6 @@ Any unrecognized arguments are passed as is to the terminal emulator. To prevent
 >`-h` is used as a shorthand for `--height`, so the short version of `--help` is `-?`.
 
 ### Window sizing
-<!-- TODO one absolute and one relative do not work lule -->
 The window size can be set either as an absolute pixel value or as a multiplier of output's size.
 
 `-w 960 -h 540` is equivalent to `-rw 0.5 -rh 0.5` for a 1920×1080 output. Absolute and relative sizes can be mixed, so `-w 960 -rh 0.5` (or vice versa) will also work.
@@ -110,7 +109,7 @@ The window can be offset from the anchored position by a set amount of pixels on
 | 0 | ![](readme-images/offset-ml.jpg) | ![](readme-images/offset-mm.jpg) | ![](readme-images/offset-mr.jpg) |
 | 150 | ![](readme-images/offset-bl.jpg) | ![](readme-images/offset-bm.jpg) | ![](readme-images/offset-br.jpg) |
 
-Green grid is 1280×720 centered. The actual window is slightly bigger because of its header.
+Green grid is 1280×720 rect centered inside the full 1920×1080 screen. The actual window is slightly bigger because of its header.
 
 ### Other script options
 (Not related to window's size or position.)
@@ -129,7 +128,7 @@ This script only really supports [`urxvt`](https://software.schmorp.de/pkg/rxvt-
 - your terminal emulator supports `-T` as an argument to set window title
 
 <!-- TODO don't forget to update the line number on future updates -->
-Otherwise, the script should be extended to work with another terminal emulator. To add an entry for another terminal emulator, add an entry to the [`terminals` dict](https://github.com/bnfour/i3-quake-terminal/blob/main/quake-terminal.py#L175):
+Otherwise, the script should be extended to work with another terminal emulator. To add an entry for another terminal emulator, add an entry to the [`terminals` dict](https://github.com/bnfour/i3-quake-terminal/blob/main/quake-terminal.py#L186):
 ```python
 terminals = {
     # ...
@@ -156,7 +155,13 @@ The script passes any arguments it did not recognize as its own to the terminal 
 With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
 
 # Credits
+
+## Inspiration
 This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
+
+## Images
+The wallpaper is at least claimed to be an OC [in this reddit post](https://redd.it/3vv1c6).  
+Terminal background image is Noël from Sora no Woto.
 
 # License
 MIT
