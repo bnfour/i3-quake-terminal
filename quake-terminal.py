@@ -40,14 +40,14 @@ class HorizontalAlignment(Enum):
 
     @staticmethod
     def allowed() -> tuple[str, ...]:
-        return ('left', 'l', 'centre', 'center', 'c', 'right', 'r')
+        return ('left', 'l', 'centre', 'center', 'c', 'middle', 'm', 'right', 'r')
     
     @staticmethod
     def from_string(string: str):
         match string.lower()[0]:
             case 'l':
                 return HorizontalAlignment.Left
-            case 'c':
+            case 'c' | 'm':
                 return HorizontalAlignment.Centre
             case 'r':
                 return HorizontalAlignment.Right
@@ -62,14 +62,14 @@ class VerticalAlignment(Enum):
 
     @staticmethod
     def allowed() -> tuple[str, ...]:
-        return ('top', 't', 'centre', 'center', 'c', 'bottom', 'b')
+        return ('top', 't', 'centre', 'center', 'c', 'middle', 'm', 'bottom', 'b')
     
     @staticmethod
     def from_string(string: str):
         match string.lower()[0]:
             case 't':
                 return VerticalAlignment.Top
-            case 'c':
+            case 'c' | 'm':
                 return VerticalAlignment.Centre
             case 'b':
                 return VerticalAlignment.Bottom

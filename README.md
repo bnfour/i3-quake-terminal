@@ -46,33 +46,31 @@ Output of built-in help command:
 
 ```
 $ quake-terminal.py -?
-usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,right,r}] [--vertical {top,t,centre,center,c,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}] [--name NAME] [--version] [--help]
+usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,middle,m,right,r}] [--vertical {top,t,centre,center,c,middle,m,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}]
+                         [--name NAME] [--version] [--help]
 
 A script to have one global terminal window toggleable by a hotkey.
 
 options:
-  --width WIDTH, -w WIDTH
-                        set the terminal window width, in pixels (default: 1280)
-  --relative-width WIDTH_RATIO, -rw WIDTH_RATIO
+  --width, -w WIDTH     set the terminal window width, in pixels (default: 1280)
+  --relative-width, -rw WIDTH_RATIO
                         set the terminal window width relative to the output width (default: None)
-  --height HEIGHT, -h HEIGHT
-                        set the terminal window height, in pixels (default: 720)
-  --relative-height HEIGHT_RATIO, -rh HEIGHT_RATIO
+  --height, -h HEIGHT   set the terminal window height, in pixels (default: 720)
+  --relative-height, -rh HEIGHT_RATIO
                         set the terminal window height relative to the output height (default: None)
-  --horizontal {left,l,centre,center,c,right,r}, -x {left,l,centre,center,c,right,r}
+  --horizontal, -x {left,l,centre,center,c,middle,m,right,r}
                         set the terminal window's horizontal align (default: centre)
-  --vertical {top,t,centre,center,c,bottom,b}, -y {top,t,centre,center,c,bottom,b}
+  --vertical, -y {top,t,centre,center,c,middle,m,bottom,b}
                         set the terminal window's vertical align (default: top)
-  --offset-horizontal OFFSET_X, -oh OFFSET_X, -ox OFFSET_X
+  --offset-horizontal, -oh, -ox OFFSET_X
                         horizontal offset for the terminal window, in pixels; positive values move to the right (default: 0)
-  --offset-vertical OFFSET_Y, -ov OFFSET_Y, -oy OFFSET_Y
+  --offset-vertical, -ov, -oy OFFSET_Y
                         vertical offset for the terminal window, in pixels; positive values move down (default: 0)
   --focus-first, -f     if enabled, calling will focus unfocused visible terminal window instead of hiding it; focused terminal will be hidden (default: False)
-  --output OUTPUT, -o OUTPUT
-                        set the terminal window's output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output (default: main)
-  --terminal {generic,urxvt}, -t {generic,urxvt}
+  --output, -o OUTPUT   set the terminal window's output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output (default: main)
+  --terminal, -t {generic,urxvt}
                         terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal (default: urxvt)
-  --name NAME, -n NAME  set the terminal window name. Should be unique for the script to work (default: The terminal)
+  --name, -n NAME       set the terminal window name. Should be unique for the script to work (default: The terminal)
   --version, -v         show program's version number and exit
   --help, -?            show this help message and exit
 
