@@ -99,21 +99,35 @@ class Position(object):
 
 
 @dataclass
-class SizeMultiplier(object):
-    """Represents size ratios between two screen areas, independent by axis"""
-    width_multiplier: float
-    height_multiplier: float
-
-
-@dataclass
 class Size(object):
     """Represents size of an area on the screen"""
     width: int
     height: int
 
-    def __mul__(self, mult: SizeMultiplier):
-        """Applies a multiplier for the size"""
-        return Size(int(self.width * mult.width_multiplier), int(self.height * mult.height_multiplier))
+
+@dataclass
+class SizeSettings(object):
+    """Represents size setting for the terminal window"""
+    # int is assumed absolute pixel value
+    # float is assumed multiplier of output's size
+    width: int | float
+    height: int | float
+
+    def apply_to(self, size: Size) -> Size:
+        """Applies settings for the (presumably) output's size, returns result as a new instance for window size"""
+        # size is only needed for relative settings
+        match self.width:
+            case int():
+                w = self.width
+            case float():
+                w = int(self.width * size.width)
+        match self.height:
+            case int():
+                h = self.height
+            case float():
+                h = int(self.height * size.height)
+
+        return Size(w, h)
 
 
 @dataclass
@@ -136,7 +150,7 @@ class Terminal(object):
 @dataclass
 class TypedConfig(object):
     """Holds typed settings for the script for ease of access"""
-    size: Size | SizeMultiplier
+    size: SizeSettings
     extra_offset: Offset
     horizontal_anchor: HorizontalAlignment
     vertical_anchor: VerticalAlignment
@@ -148,11 +162,8 @@ class TypedConfig(object):
 
     @staticmethod
     def from_namespace(namespace: argparse.Namespace):
-        if namespace.height_ratio is not None and namespace.width_ratio is not None:
-            size = SizeMultiplier(namespace.width_ratio, namespace.height_ratio)
-        else:
-            size = Size(namespace.width, namespace.height)
-        
+        size = SizeSettings(namespace.width_ratio or namespace.width,
+            namespace.height_ratio or namespace.height)
         offset = Offset(namespace.offset_x, namespace.offset_y)
         h_anchor = HorizontalAlignment.from_string(namespace.horizontal)
         v_anchor = VerticalAlignment.from_string(namespace.vertical)
@@ -182,7 +193,7 @@ terminals = {
 # default settings for the script
 # the values that I use so so I can write less arguments ('-^)b
 defaults = TypedConfig(
-    Size(1280, 720),
+    SizeSettings(1280, 720),
     Offset(0, 0),
     HorizontalAlignment.Centre,
     VerticalAlignment.Top,
@@ -319,11 +330,7 @@ def show(window: i3ipc.Con, i3: i3ipc.Connection, config: TypedConfig):
     """
     output_region = get_output_properties(config.output, i3)
 
-    match config.size:
-        case Size():
-            window_size = config.size
-        case SizeMultiplier():
-            window_size = output_region.size * config.size
+    window_size = config.size.apply_to(output_region.size)
     
     window_position = get_position(output_region, window_size, config.extra_offset,
         config.horizontal_anchor, config.vertical_anchor)
