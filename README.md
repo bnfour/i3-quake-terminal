@@ -1,8 +1,8 @@
 # i3-quake-terminal
-A script for i3 window manager to have a global drop-down terminal window toggleable by a hotkey.
+A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a hotkey.
 
 # Installation
-Just drop `quake-terminal.py` somewhere and [create a keybind](#setting-the-hotkey) to launch it in your i3 config.
+Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey) to launch it in your i3 config.
 
 ## Requirements
 Requires `i3ipc` package ([PyPI](https://pypi.org/project/i3ipc/), [GitHub](https://github.com/altdesktop/i3ipc-python)).
@@ -18,16 +18,31 @@ The script creates a single sticky terminal window on specified output, toggleab
 
 This script can be used to provide a quickly accessible general terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
 
-## Setting the hotkey
-Minimal configuration on i3 side is to add a keybind to launch the script.
+## i3 configuration
+This script requires some configuration on i3's side to work properly. See [docs](https://i3wm.org/docs/userguide.html#configuring) for details.
+
+### Hotkey
+Minimal configuration is to [add a keybind](https://i3wm.org/docs/userguide.html#keybindings) to launch the script.
 
 Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to launch the script with its [default settings](#default-settings):
 ```
 bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py
 ```
 
+### Flickering
+To prevent terminal window first appearing in default position first and visibly teleporting to proper position, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to the config to move it to the scratchpad by default.
+
+An example for default settings, an `urxvt` window called "The terminal":
+```
+for_window [class="URxvt" title="The terminal"] move scratchpad
+```
+Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
+
+## Configuration
+The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable default values, so the script will work out of the box without any arguments (assuming you use `rxvt-unicode`).
+
 ## Available settings
-The script accepts many options to set the terminal window's properties and behaviour:
+Output of built-in help command:
 
 ```
 $ quake-terminal.py -?
@@ -64,14 +79,54 @@ options:
 Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad
 ```
 
-### Argument passing
-The script passes any provided arguments it did not recognize as its own to the terminal emulator as is.
+>[!NOTE]
+>`-h` is used as a shorthand for `--height`, so the short version of `--help` is `-?`.
 
-### Default settings
-With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
+### Window sizing
+<!-- TODO one absolute and one relative do not work lule -->
+The window size can be set either as an absolute pixel value or as a multiplier of output's size.
 
-## Terminal emulator configuration
-This script only really supports `urxvt` out of the box (as it's _the_ terminal emulator I use). "generic" option might work for other terminal emulators if:
+`-w 960 -h 540` is equivalent to `-rw 0.5 -rh 0.5` for a 1920×1080 output. Absolute and relative sizes can be mixed, so `-w 960 -rh 0.5` (or vice versa) will also work.
+
+### Window positioning
+The window is anchored relatively to one of nine anchors of a display output, with an optional offset.
+
+#### Output
+To select an output to use, use its name (as reported by `xrandr --listmonitors`, e.g. "DP-0") with `--output`. Special "main" value is also accepted to use the output set as primary, regardless of its name.
+
+#### Anchoring
+The nine anchors are all possible combinations of three vertical (top, middle, bottom) and horizontal (left, middle, bottom) anchors:
+
+| -v ╲ -h | left | middle | right |
+| ---: | :--- | :---: | ---: |
+| top | tl | tm | tr|
+| middle | ml | centre | mr |
+| bottom | bl | bm | br  |
+
+#### Offset
+The window can be offset from the anchored position by a set amount of pixels on both axes:
+
+| -oy ╲ -ox | -200 | 0 | 200 |
+| ---: | :---: | :---: | :---: |
+| -200 | tl | tm | tr|
+| 0 | ml | centre | mr |
+| 200 | bl | bm | br  |
+
+Positive X moves to the right, positive Y moves down.
+
+### Other script options
+(Not related to window's size or position.)
+
+#### Focus behaviour
+By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
+
+#### Window title
+`--name` sets the title for the terminal emulator's window. It needs to be unique for the script to properly initialize. After script initialization (the window was shown for the first time), the title can be changed freely.
+
+#### Terminal
+`--terminal` sets the terminal emulator app to call.
+
+This script only really supports [`urxvt`](https://software.schmorp.de/pkg/rxvt-unicode.html) out of the box (as it's _the_ terminal emulator I use). "generic" option might work for other terminal emulators if:
 - `i3-sensible-terminal` launches your terminal emulator
 - your terminal emulator supports `-T` as an argument to set window title
 
@@ -96,14 +151,11 @@ The parameters will be used to call the terminal emulator like this:
 executable-name arg-to-set-title "Actual title set by another argument"
 ```
 
-## Flickering
-To prevent terminal window first appearing in default position first and visibly teleporting to proper position, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to your i3 config to move it to the scratchpad by default.
+### Argument passing
+The script passes any arguments it did not recognize as its own to the terminal emulator as is.
 
-An example for default settings, an `urxvt` window called "The terminal":
-```
-for_window [class="URxvt" title="The terminal"] move scratchpad
-```
-Adjust class and title as needed. Class name for your terminal emulator can be found using `xprop`.
+### Default settings
+With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
 
 # Credits
 This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
