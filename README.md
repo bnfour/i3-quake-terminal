@@ -97,18 +97,18 @@ The nine anchors are all possible combinations of three vertical (top, middle, b
 
 | -v ╲ -h | left | middle | right |
 | ---: | :--- | :---: | ---: |
-| top | tl | tm | tr|
-| middle | ml | centre | mr |
-| bottom | bl | bm | br  |
+| top | ![](readme-images/tl.jpg) | ![](readme-images/tm.jpg) | ![](readme-images/tr.jpg) |
+| middle | ![](readme-images/ml.jpg) | ![](readme-images/mm.jpg) | ![](readme-images/mr.jpg) |
+| bottom | ![](readme-images/bl.jpg) | ![](readme-images/bm.jpg) | ![BR pepeLaugh](readme-images/br.jpg) |
 
 #### Offset
 The window can be offset from the anchored position by a set amount of pixels on both axes:
 
-| -oy ╲ -ox | -200 | 0 | 200 |
+| -oy ╲ -ox | -150 | 0 | 150 |
 | ---: | :---: | :---: | :---: |
-| -200 | tl | tm | tr|
+| -150 | tl | tm | tr|
 | 0 | ml | centre | mr |
-| 200 | bl | bm | br  |
+| 150 | bl | bm | br  |
 
 Positive X moves to the right, positive Y moves down.
 
