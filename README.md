@@ -102,15 +102,15 @@ The nine anchors are all possible combinations of three vertical (top, middle, b
 | bottom | ![](readme-images/bl.jpg) | ![](readme-images/bm.jpg) | ![BR pepeLaugh](readme-images/br.jpg) |
 
 #### Offset
-The window can be offset from the anchored position by a set amount of pixels on both axes:
+The window can be offset from the anchored position by a set amount of pixels on both axes. Positive X moves to the right, positive Y moves down:
 
 | -oy ╲ -ox | -150 | 0 | 150 |
 | ---: | :---: | :---: | :---: |
-| -150 | tl | tm | tr|
-| 0 | ml | centre | mr |
-| 150 | bl | bm | br  |
+| -150 | ![](readme-images/offset-tl.jpg) | ![](readme-images/offset-tm.jpg) | ![↗️ LULE](readme-images/offset-tr.jpg) |
+| 0 | ![](readme-images/offset-ml.jpg) | ![](readme-images/offset-mm.jpg) | ![](readme-images/offset-mr.jpg) |
+| 150 | ![](readme-images/offset-bl.jpg) | ![](readme-images/offset-bm.jpg) | ![](readme-images/offset-br.jpg) |
 
-Positive X moves to the right, positive Y moves down.
+Green grid is 1280×720 centered. The actual window is slightly bigger because of its header.
 
 ### Other script options
 (Not related to window's size or position.)
