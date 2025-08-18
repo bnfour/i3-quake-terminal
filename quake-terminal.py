@@ -17,7 +17,7 @@ import time
 
 from enum import Enum
 from dataclasses import dataclass
-from typing import cast
+from typing import cast, Callable
 
 try:
     import i3ipc
@@ -334,7 +334,7 @@ def show(window: i3ipc.Con, i3: i3ipc.Connection, config: TypedConfig):
     # i3ipc.Con.rect.height is larger than target size
     # and this breaks the bottom anchor, so we store the value
     # and compensate for it when needed
-    height_diff = window.rect.height - window_size.height
+    height_diff = cast(int, window.rect.height) - window_size.height # type: ignore
 
     window_position = get_position(output_region, window_size, config.extra_offset,
         config.horizontal_anchor, config.vertical_anchor, height_diff)
@@ -368,10 +368,9 @@ def get_output_properties(name: str, i3: i3ipc.Connection) -> Region:
     """
     outputs = i3.get_outputs()
 
-    if name == 'main':
-        filtered = tuple(out for out in outputs if out.primary) # type: ignore
-    else:
-        filtered = tuple(out for out in outputs if out.name == name) # type: ignore
+    filter_predicate: Callable[[i3ipc.OutputReply], bool] = (lambda x: x.primary) if name == 'main' else (lambda x: x.name == name) # type: ignore
+    filtered = tuple(out for out in outputs if filter_predicate(out))
+
     # surely there is no way two outputs will ever have the same name
     if len(filtered) != 1:
         print(f'Unable to find output "{name}".')
