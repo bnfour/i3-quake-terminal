@@ -1,5 +1,8 @@
 # i3-quake-terminal
-A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a hotkey.
+A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a configurable hotkey.
+
+![backgrounds are not included](readme-images/demo.avif)
+[pipes.sh](https://github.com/pipeseroni/pipes.sh) not included — it just shows restart after quitting (<kbd>q</kbd>) clearly.
 
 # Installation
 Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey) to launch it in your i3 config.
@@ -14,9 +17,9 @@ For other distros, consult your package manager repos, or install via `pip`:
 `python -m pip install i3ipc`
 
 # Usage
-The script creates a single sticky terminal window on specified output, toggleable via calling the script again. The first call will show the window, the second call will hide it, and so on. If the window is closed, the first subsequent call will create and show a new one.
+The script creates a single sticky terminal window on specified output, toggleable via calling the script again. The first call will show the window, the second call will hide it, and so on. If the window is but closed instead of using the script to hide it, the first subsequent call will create and show a new one.
 
-This script can be used to provide a quickly accessible general terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
+This script can be used to provide a quickly accessible terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
 
 ## i3 configuration
 This script requires some configuration on i3's side to work properly. See [docs](https://i3wm.org/docs/userguide.html#configuring) for details.
