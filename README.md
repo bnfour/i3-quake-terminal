@@ -1,8 +1,11 @@
 # i3-quake-terminal
-A script for i3 window manager to have one global drop-down terminal window toggleable by a hotkey.
+A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a configurable hotkey.
+
+![backgrounds are not included](readme-images/demo.avif)
+[pipes.sh](https://github.com/pipeseroni/pipes.sh) not included — it just shows restart after quitting (<kbd>q</kbd>) clearly.
 
 # Installation
-Just drop `quake-terminal.py` somewhere and create some keybinds to launch it in your i3 config.
+Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey) to launch it in your i3 config.
 
 ## Requirements
 Requires `i3ipc` package ([PyPI](https://pypi.org/project/i3ipc/), [GitHub](https://github.com/altdesktop/i3ipc-python)).
@@ -14,64 +17,187 @@ For other distros, consult your package manager repos, or install via `pip`:
 `python -m pip install i3ipc`
 
 # Usage
-The script creates a single sticky terminal window on specified output, toggleable via calling the script again. The first call will show the window, the second call will hide it, and so on. If the window is closed, the first subsequent call will create and show a new one.
+The script creates a single sticky terminal window on specified output, toggleable via calling the script. The first call will show the window, the second call will hide it, and so on. If the window is but closed instead of using the script to hide it, the first subsequent call will create and show a new one.
 
-Available settings:
+This script can be used to provide a quickly accessible terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
+
+## i3 configuration
+This script requires some configuration on i3's side to work properly. See [docs](https://i3wm.org/docs/userguide.html#configuring) for details.
+
+### Hotkey
+Minimal configuration is to [add a keybind](https://i3wm.org/docs/userguide.html#keybindings) to launch the script.
+
+Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to launch the script with its [default settings](#default-settings):
+```
+bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py
+```
+
+### Flickering
+To prevent terminal window first appearing in default position first and visibly teleporting to proper position, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to the config to move it to the scratchpad by default.
+
+An example for default settings, an `urxvt` window called "The terminal":
+```
+for_window [class="URxvt" title="The terminal"] move scratchpad
+```
+Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
+
+# Configuration
+The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box without any arguments (assuming you use `rxvt-unicode` as a terminal emulator).
+
+## Available settings
+Output of built-in help command:
+
 ```
 $ quake-terminal.py -?
-usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,c,right,r}] [--vertical {top,t,centre,c,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}] [--name NAME] [--version] [--help]
+usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,middle,m,right,r}] [--vertical {top,t,centre,center,c,middle,m,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}]
+                         [--name NAME] [--version] [--help]
 
 A script to have one global terminal window toggleable by a hotkey.
 
 options:
-  --width WIDTH, -w WIDTH
-                        set the terminal window width, in pixels (default: 1280)
-  --relative-width WIDTH_RATIO, -rw WIDTH_RATIO
+  --width, -w WIDTH     set the terminal window width, in pixels (default: 1280)
+  --relative-width, -rw WIDTH_RATIO
                         set the terminal window width relative to the output width (default: None)
-  --height HEIGHT, -h HEIGHT
-                        set the terminal window height, in pixels (default: 720)
-  --relative-height HEIGHT_RATIO, -rh HEIGHT_RATIO
+  --height, -h HEIGHT   set the terminal window height, in pixels (default: 720)
+  --relative-height, -rh HEIGHT_RATIO
                         set the terminal window height relative to the output height (default: None)
-  --horizontal {left,l,centre,c,right,r}, -x {left,l,centre,c,right,r}
+  --horizontal, -x {left,l,centre,center,c,middle,m,right,r}
                         set the terminal window's horizontal align (default: centre)
-  --vertical {top,t,centre,c,bottom,b}, -y {top,t,centre,c,bottom,b}
+  --vertical, -y {top,t,centre,center,c,middle,m,bottom,b}
                         set the terminal window's vertical align (default: top)
-  --offset-horizontal OFFSET_X, -oh OFFSET_X, -ox OFFSET_X
+  --offset-horizontal, -oh, -ox OFFSET_X
                         horizontal offset for the terminal window, in pixels; positive values move to the right (default: 0)
-  --offset-vertical OFFSET_Y, -ov OFFSET_Y, -oy OFFSET_Y
+  --offset-vertical, -ov, -oy OFFSET_Y
                         vertical offset for the terminal window, in pixels; positive values move down (default: 0)
   --focus-first, -f     if enabled, calling will focus unfocused visible terminal window instead of hiding it; focused terminal will be hidden (default: False)
-  --output OUTPUT, -o OUTPUT
-                        set the terminal window's output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output (default: main)
-  --terminal {generic,urxvt}, -t {generic,urxvt}
+  --output, -o OUTPUT   set the terminal window's output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output (default: main)
+  --terminal, -t {generic,urxvt}
                         terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal (default: urxvt)
-  --name NAME, -n NAME  set the terminal window name. Should be unique for the script to work (default: The terminal)
+  --name, -n NAME       set the terminal window name. Should be unique for the script to work (default: The terminal)
   --version, -v         show program's version number and exit
   --help, -?            show this help message and exit
 
 Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad
 ```
 
-Suggested usage: a quickly accessible general terminal window, or `htop` as a task manager. Feel free to invent your own uses!
+>[!NOTE]
+>`-h` is used as a shorthand for `--height`, so the short version of `--help` is `-?`.
 
-## Terminal configuration
-This script only really supports `urxvt` (as it's _the_ terminal emulator I use). "generic" option might work for other terminal emulators if:
+### Window sizing
+The window size can be set either as an absolute pixel value or as a multiplier of output's size for either of axes.
+
+`-w 960 -h 540` is equivalent to `-rw 0.5 -rh 0.5` for a 1920×1080 output. Absolute and relative sizes can be mixed, so `-w 960 -rh 0.5` (or vice versa) will also work.
+
+### Window positioning
+The window is anchored relatively to one of nine anchors of a display output, with an optional offset.
+
+#### Output
+To select an output to use, use its name (as reported by `xrandr --listmonitors`, e.g. "DP-0") with `--output`. Special "main" value is also accepted to use the output set as primary, regardless of its name.
+
+>[!TIP]
+>"main" is the default value for `--output`. It will be used if no other value is provided.
+
+#### Anchoring
+The nine anchors are all possible combinations of three vertical (top, middle, bottom) and horizontal (left, middle, bottom) anchors:
+
+| -v ╲ -h | left | middle | right |
+| ---: | :--- | :---: | ---: |
+| top | ![](readme-images/tl.jpg) | ![](readme-images/tm.jpg) | ![](readme-images/tr.jpg) |
+| middle | ![](readme-images/ml.jpg) | ![](readme-images/mm.jpg) | ![](readme-images/mr.jpg) |
+| bottom | ![](readme-images/bl.jpg) | ![](readme-images/bm.jpg) | ![BR pepeLaugh](readme-images/br.jpg) |
+
+Left, right, top, and bottom anchors move the window so its border touches the relevant edge of the output, but does not go over it. Horizontal centering works like you would expect it to. Vertical centering is complicated (see the next table).
+
+#### Offset
+The window can be offset from the anchored position by a set amount of pixels on both axes. This can be used to emulate gaps, make the window not overlap with a bar, or just move it around for any other reason.
+
+Positive X moves to the right, positive Y moves down:
+
+| -oy ╲ -ox | -150 | 0 | 150 |
+| ---: | :---: | :---: | :---: |
+| -150 | ![](readme-images/offset-tl.jpg) | ![](readme-images/offset-tm.jpg) | ![↗️ LULE](readme-images/offset-tr.jpg) |
+| 0 | ![](readme-images/offset-ml.jpg) | ![](readme-images/offset-mm.jpg) | ![](readme-images/offset-mr.jpg) |
+| 150 | ![](readme-images/offset-bl.jpg) | ![](readme-images/offset-bm.jpg) | ![](readme-images/offset-br.jpg) |
+
+In these demo images:
+- Both anchors are set to middle.
+- The green grid is 1280×720 rect centered inside the full 1920×1080 screen.  
+Its lines are 4px wide, so the inner 2px of lines are part of the inner rect.
+- The actual window is slightly taller because of its header.  
+Tt's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how window decorations work ¯\\\_(ツ)\_/¯)
+
+The offsets can be used to move the window anywhere from the anchor point, including any other output it's not anchored to.
+
+### Other script options
+Not related to window's size or position.
+
+#### Focus behaviour
+By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
+
+#### Window title
+`--name` sets the title for the terminal emulator's window. It needs to be unique for the script to properly initialize. After the window was shown for the first time, its title can be changed freely.
+
+#### Terminal
+`--terminal` sets the terminal emulator app to call.
+
+This script only really supports [`rxvt-unicode`](https://software.schmorp.de/pkg/rxvt-unicode.html) (commonly referred to as `urxvt`) out of the box, as it's _the_ terminal emulator I use. The "generic" option might work for other terminal emulators if:
 - `i3-sensible-terminal` launches your terminal emulator
 - your terminal emulator supports `-T` as an argument to set window title
 
-Otherwise, please extend the script to work with another terminal emulator. See `terminals` dict in the configuration section.
-
-## Flickering
-As stated in the help message, to prevent terminal window first appearing in default position and visibly teleporting to proper position, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to your i3 config to move it to the scratchpad by default.
-
-An example for default settings, an `urxvt` window called "The terminal":
+<!-- TODO don't forget to update the line number on future updates -->
+Otherwise, the script should be extended to work with another terminal emulator. To add an entry for another terminal emulator, add an entry to the [`terminals` dict](https://github.com/bnfour/i3-quake-terminal/blob/main/quake-terminal.py#L186):
+```python
+terminals = {
+    # ...
+    # original for comparison
+    'urxvt': Terminal('urxvt', '-title'),
+    # add your own favourite terminal emulator
+    'user-friendly-name': Terminal('executable-name', 'arg-to-set-title')
+}
 ```
-for_window [class="URxvt" title="The terminal"] move scratchpad
+
+- `user-friendly-name` is used to set the terminal emulator name in script arguments; can be set to whatever
+- `executable-name` is the actual executable name
+- `arg-to-set-title` is the argument to set the title, with all leading dashes, if needed
+
+The script will invoke the terminal emulator like this:
 ```
-Adjust class and title as needed. Class name for your terminal emulator can be found using `xprop`.
+executable-name arg-to-set-title "Actual title set by another argument" [other arguments to pass]
+```
+
+### Argument passing
+The script passes any arguments it did not recognize as its own to the terminal emulator as is. If you need to pass arguments that are also defined for this script, use `--` to separate script's and terminal's arguments.
+
+>[!TIP]
+>It's a good idea to separate these even if there are no conflicts.
+
+```
+// "urxvt -e pipes.sh -t 0" is a perfectly valid command by itself,
+// similar to the one used for the animated demo;
+// however, -t is also the script's argument for terminal to use;
+// "-w 1000" is here as a sample argument for the script
+
+$ quake-terminal.py -w 1000 -e pipes.sh -t 0
+... Error! The script complains about the unknown "0" terminal
+
+$ quake-terminal.py -w 1000 -- -e pipes.sh -t 0
+... just works™ -----------⬏
+```
+
+>[!WARNING]
+> The first instance of `--` is not passed to the terminal app to avoid unintended effects. If you _really_ need to pass over a literal `--` as the first argument, duplicate it in the script's command.
+
+### Default settings
+With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
 
 # Credits
-This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out!
+
+## Inspiration
+This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
+
+## Images
+The wallpaper is at least claimed to be an OC [in this reddit post](https://redd.it/3vv1c6).  
+Terminal background image is Noël from Sora no Woto.
 
 # License
 MIT
