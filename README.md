@@ -84,7 +84,7 @@ Any unrecognized arguments are passed as is to the terminal emulator. To prevent
 >`-h` is used as a shorthand for `--height`, so the short version of `--help` is `-?`.
 
 ### Window sizing
-The window size can be set either as an absolute pixel value or as a multiplier of output's size.
+The window size can be set either as an absolute pixel value or as a multiplier of output's size for either of axes.
 
 `-w 960 -h 540` is equivalent to `-rw 0.5 -rh 0.5` for a 1920×1080 output. Absolute and relative sizes can be mixed, so `-w 960 -rh 0.5` (or vice versa) will also work.
 
@@ -93,6 +93,9 @@ The window is anchored relatively to one of nine anchors of a display output, wi
 
 #### Output
 To select an output to use, use its name (as reported by `xrandr --listmonitors`, e.g. "DP-0") with `--output`. Special "main" value is also accepted to use the output set as primary, regardless of its name.
+
+>[!TIP]
+>"main" is the default value for `--output`. It will be used if no other value is provided.
 
 #### Anchoring
 The nine anchors are all possible combinations of three vertical (top, middle, bottom) and horizontal (left, middle, bottom) anchors:
@@ -103,8 +106,10 @@ The nine anchors are all possible combinations of three vertical (top, middle, b
 | middle | ![](readme-images/ml.jpg) | ![](readme-images/mm.jpg) | ![](readme-images/mr.jpg) |
 | bottom | ![](readme-images/bl.jpg) | ![](readme-images/bm.jpg) | ![BR pepeLaugh](readme-images/br.jpg) |
 
+Left, right, top, and bottom anchors move the window so its border touches the relevant edge of the output, but does not go over it. Horizontal centering works like you would expect it to. Vertical centering is complicated (see the next table).
+
 #### Offset
-The window can be offset from the anchored position by a set amount of pixels on both axes. This can be used to emulate gaps, make the window not overlap with a bar, or just move it around for other reasons.
+The window can be offset from the anchored position by a set amount of pixels on both axes. This can be used to emulate gaps, make the window not overlap with a bar, or just move it around for any other reason.
 
 Positive X moves to the right, positive Y moves down:
 
@@ -117,9 +122,11 @@ Positive X moves to the right, positive Y moves down:
 In these demo images:
 - Both anchors are set to middle.
 - The green grid is 1280×720 rect centered inside the full 1920×1080 screen.  
-Its lines are 4px wide, so the inner 2px of a line are part of the rect.
+Its lines are 4px wide, so the inner 2px of lines are part of the inner rect.
 - The actual window is slightly taller because of its header.  
-Tt's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how the window decorations work ¯\\\_(ツ)\_/¯)
+Tt's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how window decorations work ¯\\\_(ツ)\_/¯)
+
+The offsets can be used to move the window anywhere from the anchor point, including any other output it's not anchored to.
 
 ### Other script options
 Not related to window's size or position.
@@ -128,7 +135,7 @@ Not related to window's size or position.
 By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
 
 #### Window title
-`--name` sets the title for the terminal emulator's window. It needs to be unique for the script to properly initialize. After script initialization (the window was shown for the first time), the title can be changed freely.
+`--name` sets the title for the terminal emulator's window. It needs to be unique for the script to properly initialize. After the window was shown for the first time, its title can be changed freely.
 
 #### Terminal
 `--terminal` sets the terminal emulator app to call.
@@ -159,7 +166,11 @@ executable-name arg-to-set-title "Actual title set by another argument" [other a
 ```
 
 ### Argument passing
-The script passes any arguments it did not recognize as its own to the terminal emulator as is. If you need to pass arguments that are also defined for this script, use `--` to separate script's and terminal's arguments. It's also a good idea to separate these even if there are no conflicts.
+The script passes any arguments it did not recognize as its own to the terminal emulator as is. If you need to pass arguments that are also defined for this script, use `--` to separate script's and terminal's arguments.
+
+>[!TIP]
+>It's a good idea to separate these even if there are no conflicts.
+
 ```
 // "urxvt -e pipes.sh -t 0" is a perfectly valid command by itself,
 // similar to the one used for the animated demo;
@@ -175,7 +186,6 @@ $ quake-terminal.py -w 1000 -- -e pipes.sh -t 0
 
 >[!WARNING]
 > The first instance of `--` is not passed to the terminal app to avoid unintended effects. If you _really_ need to pass over a literal `--` as the first argument, duplicate it in the script's command.
-
 
 ### Default settings
 With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
