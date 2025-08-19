@@ -22,7 +22,7 @@ from typing import cast, Callable
 try:
     import i3ipc
 except ImportError:
-    print('i3ipc module not found. Exiting.')
+    print('i3ipc module not found. Exiting.', file=sys.stderr, flush=True)
     sys.exit(1)
 
 #endregion
@@ -273,7 +273,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     term_by_tag = i3.get_tree().find_marked(window_tag)
     if term_by_tag:
         if len(term_by_tag) != 1:
-            print(f'Multiple windows tagged "{window_tag}" detected. Please clarify.')
+            print(f'Multiple windows tagged "{window_tag}" detected. Please clarify.', file=sys.stderr, flush=True)
             sys.exit(1)
 
         toggle(term_by_tag[0], i3, config)
@@ -288,7 +288,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
             try:
                 os.execvp(config.terminal.executable, arguments)
             except FileNotFoundError as e:
-                print(f'Unable to run "{config.terminal.executable}": {e.strerror}')
+                print(f'Unable to run "{config.terminal.executable}": {e.strerror}', file=sys.stderr, flush=True)
                 sys.exit(1)
         else:
             term_by_name = None
@@ -299,11 +299,11 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
                 if term_by_name:
                     break
             else:
-                print(f'Unable to find a window with title "{config.window_title}" after waiting. Giving up.')
+                print(f'Unable to find a window with title "{config.window_title}" after waiting. Giving up.', file=sys.stderr, flush=True)
                 sys.exit(1)
 
             if len(term_by_name) != 1:
-                print(f'Multiple windows with title "{config.window_title}" detected. Please use --name to set an unique one.')
+                print(f'Multiple windows with title "{config.window_title}" detected. Please use --name to set an unique one.', file=sys.stderr, flush=True)
                 sys.exit(1)
 
             term_by_name[0].command(f'mark {window_tag}')
@@ -380,7 +380,7 @@ def get_output_properties(name: str, i3: i3ipc.Connection) -> Region:
 
     # surely there is no way two outputs will ever have the same name
     if len(filtered) != 1:
-        print(f'Unable to find output "{name}".')
+        print(f'Unable to find output "{name}".', file=sys.stderr, flush=True)
         sys.exit(1)
     
     rect = filtered[0].rect # type: ignore
