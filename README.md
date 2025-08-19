@@ -17,7 +17,7 @@ For other distros, consult your package manager repos, or install via `pip`:
 `python -m pip install i3ipc`
 
 # Usage
-The script creates a single sticky terminal window on specified output, toggleable via calling the script again. The first call will show the window, the second call will hide it, and so on. If the window is but closed instead of using the script to hide it, the first subsequent call will create and show a new one.
+The script creates a single sticky terminal window on specified output, toggleable via calling the script. The first call will show the window, the second call will hide it, and so on. If the window is but closed instead of using the script to hide it, the first subsequent call will create and show a new one.
 
 This script can be used to provide a quickly accessible terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
 
@@ -41,7 +41,7 @@ for_window [class="URxvt" title="The terminal"] move scratchpad
 ```
 Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
 
-## Configuration
+# Configuration
 The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box without any arguments (assuming you use `rxvt-unicode` as a terminal emulator).
 
 ## Available settings
@@ -104,7 +104,9 @@ The nine anchors are all possible combinations of three vertical (top, middle, b
 | bottom | ![](readme-images/bl.jpg) | ![](readme-images/bm.jpg) | ![BR pepeLaugh](readme-images/br.jpg) |
 
 #### Offset
-The window can be offset from the anchored position by a set amount of pixels on both axes. Positive X moves to the right, positive Y moves down:
+The window can be offset from the anchored position by a set amount of pixels on both axes. This can be used to emulate gaps, make the window not overlap with a bar, or just move it around for other reasons.
+
+Positive X moves to the right, positive Y moves down:
 
 | -oy ╲ -ox | -150 | 0 | 150 |
 | ---: | :---: | :---: | :---: |
@@ -112,10 +114,15 @@ The window can be offset from the anchored position by a set amount of pixels on
 | 0 | ![](readme-images/offset-ml.jpg) | ![](readme-images/offset-mm.jpg) | ![](readme-images/offset-mr.jpg) |
 | 150 | ![](readme-images/offset-bl.jpg) | ![](readme-images/offset-bm.jpg) | ![](readme-images/offset-br.jpg) |
 
-Green grid is 1280×720 rect centered inside the full 1920×1080 screen. The actual window is slightly bigger because of its header.
+In these demo images:
+- Both anchors are set to middle.
+- The green grid is 1280×720 rect centered inside the full 1920×1080 screen.  
+Its lines are 4px wide, so the inner 2px of a line are part of the rect.
+- The actual window is slightly taller because of its header.  
+Tt's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how the window decorations work ¯\\\_(ツ)\_/¯)
 
 ### Other script options
-(Not related to window's size or position.)
+Not related to window's size or position.
 
 #### Focus behaviour
 By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
@@ -126,7 +133,7 @@ By default, invoking the script when the associated window is visible on the scr
 #### Terminal
 `--terminal` sets the terminal emulator app to call.
 
-This script only really supports [`urxvt`](https://software.schmorp.de/pkg/rxvt-unicode.html) out of the box (as it's _the_ terminal emulator I use). "generic" option might work for other terminal emulators if:
+This script only really supports [`rxvt-unicode`](https://software.schmorp.de/pkg/rxvt-unicode.html) (commonly referred to as `urxvt`) out of the box, as it's _the_ terminal emulator I use. The "generic" option might work for other terminal emulators if:
 - `i3-sensible-terminal` launches your terminal emulator
 - your terminal emulator supports `-T` as an argument to set window title
 
@@ -146,13 +153,29 @@ terminals = {
 - `executable-name` is the actual executable name
 - `arg-to-set-title` is the argument to set the title, with all leading dashes, if needed
 
-The parameters will be used to call the terminal emulator like this:
-```bash
-executable-name arg-to-set-title "Actual title set by another argument"
+The script will invoke the terminal emulator like this:
+```
+executable-name arg-to-set-title "Actual title set by another argument" [other arguments to pass]
 ```
 
 ### Argument passing
-The script passes any arguments it did not recognize as its own to the terminal emulator as is.
+The script passes any arguments it did not recognize as its own to the terminal emulator as is. If you need to pass arguments that are also defined for this script, use `--` to separate script's and terminal's arguments. It's also a good idea to separate these even if there are no conflicts.
+```
+// "urxvt -e pipes.sh -t 0" is a perfectly valid command by itself,
+// similar to the one used for the animated demo;
+// however, -t is also the script's argument for terminal to use;
+// "-w 1000" is here as a sample argument for the script
+
+$ quake-terminal.py -w 1000 -e pipes.sh -t 0
+... Error! The script complains about the unknown "0" terminal
+
+$ quake-terminal.py -w 1000 -- -e pipes.sh -t 0
+... just works™ -----------⬏
+```
+
+>[!WARNING]
+> The first instance of `--` is not passed to the terminal app to avoid unintended effects. If you _really_ need to pass over a literal `--` as the first argument, duplicate it in the script's command.
+
 
 ### Default settings
 With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
