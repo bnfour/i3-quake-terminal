@@ -282,6 +282,8 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
         if pid != 0:
             arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
             if arguments_to_pass:
+                if (arguments_to_pass[0] == '--'):
+                    arguments_to_pass = arguments_to_pass[1::]
                 arguments.extend(arguments_to_pass)
             try:
                 os.execvp(config.terminal.executable, arguments)
