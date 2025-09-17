@@ -433,7 +433,7 @@ def launch_program(arguments: list[str]) -> NoReturn:
             print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
             sys.exit(1)
 
-def find_related_windows(i3: i3ipc.Connection, pid: int, window_ids_to_skip: list[int]) -> list[i3ipc.Con]:
+def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: list[int]) -> list[i3ipc.Con]:
     """
     Returns a list of windows related to a given pid: the windows may be directly associated with it,
     or has the pid as its (grand*)parent.
@@ -447,13 +447,9 @@ def find_related_windows(i3: i3ipc.Connection, pid: int, window_ids_to_skip: lis
         data_dict = match_pids_to_wids([w.window for w in windows_to_check]) # type: ignore
 
         for pid in data_dict.keys():
-            if pid == pid:
+            if pid == parent or parent in [i.pid for i in psutil.Process(pid).parents()]:
                 found = [w for w in windows_to_check if w.window == data_dict[pid]] # type: ignore
                 break
-            else:
-                if pid in [i.pid for i in psutil.Process(pid).parents()]:
-                    found = [w for w in windows_to_check if w.window == data_dict[pid]] # type: ignore
-                    break
 
         if found:
             break
