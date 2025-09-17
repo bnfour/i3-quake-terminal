@@ -1,3 +1,5 @@
+# **Documentation for upcoming v3 in this branch coming soon™ — "some" things below are outdated**
+
 # i3-quake-terminal
 A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a configurable hotkey.
 
