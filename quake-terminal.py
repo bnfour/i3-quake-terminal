@@ -3,7 +3,7 @@
 # a script for i3 to have one global terminal available on hotkey,
 # now with almost proper typing (as in "# type: ignore" interfacing with code outside of standard library)
 
-# requires python3-i3ipc package
+# requires python3-i3ipc, python3-psutil, python3-xlib packages
 
 # see https://github.com/bnfour/i3-quake-terminal for details,
 # MIT license
@@ -24,14 +24,13 @@ try:
     import i3ipc
     import psutil
     import Xlib
-except ImportError:
-    # TODO generalize the error message
-    print('i3ipc module not found. Exiting.', file=sys.stderr, flush=True)
+except ImportError as e:
+    print(f'{e.name} not found. Exiting.', file=sys.stderr, flush=True)
     sys.exit(1)
 
 #endregion
 
-version= '2.2->3 indev'
+version = 'almost 3'
 
 #region definitions
 
@@ -142,7 +141,7 @@ class Region(object):
 
 #endregion
 
-#region definitions -> misc
+#region definitions -> config
 
 @dataclass(frozen=True)
 class TypedConfig(object):
@@ -167,14 +166,8 @@ class TypedConfig(object):
 
         return TypedConfig(size, offset, h_anchor, v_anchor, output, focus_first)
 
-#endregion
-
-#endregion
-
-#region configuration
 
 # TODO consider moving those outside of global scope
-
 # default settings for the script
 # the values that I use so so I can write less arguments ('-^)b
 defaults = TypedConfig(
@@ -188,8 +181,10 @@ defaults = TypedConfig(
 
 #endregion
 
-#region argparse setup
+#endregion
 
+#region argparse setup
+# TODO somehow suggest that this script requires a command to run
 def get_args() -> tuple[TypedConfig, list[str]]:
     """
     Returns parsed arguments for the script itself,
@@ -258,7 +253,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     else:
         # an optimization to not iterate through all existing windows,
         # we know the one(s) we're looking for do not exist yet
-        existing_window_ids = [w.window for w in i3.get_tree().leaves()] # type: ignore
+        existing_window_ids: list[int] = [w.window for w in i3.get_tree().leaves()] # type: ignore
 
         pid = os.fork()
         if pid != 0:
@@ -396,13 +391,11 @@ def generate_window_tag(args: list[str]) -> str:
 
 #endregion
 
-# TODO consider reusing display?
-def match_pids_to_wids(wids: list[int]) -> dict[int, int]:
+def match_pids_to_wids(wids: list[int], display: Xlib.display.Display) -> dict[int, int]:
     """
     For a list of given window ids, queries the display for related process ids,
     returns a dictionary where process ids are mapped to window ids.
     """
-    display = Xlib.display.Display()
     ret: dict[int, int] = {}
 
     for wid in wids:
@@ -412,15 +405,13 @@ def match_pids_to_wids(wids: list[int]) -> dict[int, int]:
             if id.spec.client > 0 and id.spec.mask == Xlib.ext.res.LocalClientPIDMask: # type: ignore
                 for value in id.value:
                     ret[value] = wid
-
-    display.close()
     return ret
 
 def launch_program(arguments: list[str]) -> NoReturn:
         """
         Launches the configured program with given arguments.
         """
-        # remove the leading -- if present; it's a good idea to include it
+        # remove the leading -- if present; it's a good idea to always include it
         if arguments and arguments[0] == '--':
                 arguments = arguments[1::]
         # check if anything left to run
@@ -439,12 +430,14 @@ def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: 
     or has the pid as its (grand*)parent.
     """
     found = []
+    # reused in the loop
+    display = Xlib.display.Display()
     # wait for the terminal to appear for about a second
     for _ in range(10):
         time.sleep(0.1)
 
         windows_to_check = [w for w in i3.get_tree().leaves() if w.window not in window_ids_to_skip] # type: ignore
-        data_dict = match_pids_to_wids([w.window for w in windows_to_check]) # type: ignore
+        data_dict = match_pids_to_wids([w.window for w in windows_to_check], display) # type: ignore
 
         for pid in data_dict.keys():
             if pid == parent or parent in [i.pid for i in psutil.Process(pid).parents()]:
@@ -456,7 +449,7 @@ def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: 
         else:
             # skip the windows we unsuccessfully checked this iteration in the next one
             window_ids_to_skip.extend([w.window for w in windows_to_check]) # type: ignore
-
+    display.close()
     return found
 
 if __name__ == '__main__':
