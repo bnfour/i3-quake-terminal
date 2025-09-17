@@ -15,19 +15,22 @@ import os
 import sys
 import time
 
-from enum import Enum
 from dataclasses import dataclass
-from typing import cast, Callable
+from enum import Enum
+from typing import cast, Callable, NoReturn
 
 try:
     import i3ipc
+    import psutil
+    import Xlib
 except ImportError:
+    # TODO generalize the error message
     print('i3ipc module not found. Exiting.', file=sys.stderr, flush=True)
     sys.exit(1)
 
 #endregion
 
-version= '2.2'
+version= '2.2->3 indev'
 
 #region definitions
 
@@ -269,45 +272,36 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     """
     i3 = i3ipc.Connection()
     window_tag = generate_window_tag(config.window_title)
-
     term_by_tag = i3.get_tree().find_marked(window_tag)
     if term_by_tag:
+        # TODO we can probably support multiple windows now, though they will be placed on top of each other
         if len(term_by_tag) != 1:
             print(f'Multiple windows tagged "{window_tag}" detected. Please clarify.', file=sys.stderr, flush=True)
             sys.exit(1)
 
         toggle(term_by_tag[0], i3, config)
     else:
+        # an optimization to not iterate through all existing windows,
+        # we know the one(s) we're looking for do not exist yet
+        existing_window_ids = [w.window for w in i3.get_tree().leaves()] # type: ignore
+
         pid = os.fork()
         if pid != 0:
-            arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
-            if arguments_to_pass:
-                if (arguments_to_pass[0] == '--'):
-                    arguments_to_pass = arguments_to_pass[1::]
-                arguments.extend(arguments_to_pass)
-            try:
-                os.execvp(config.terminal.executable, arguments)
-            except FileNotFoundError as e:
-                print(f'Unable to run "{config.terminal.executable}": {e.strerror}', file=sys.stderr, flush=True)
-                sys.exit(1)
+            launch_program(config, arguments_to_pass)
         else:
-            term_by_name = None
-            # wait for the terminal to appear for a second
-            for _ in range(10):
-                time.sleep(0.1)
-                term_by_name = i3.get_tree().find_titled(config.window_title)
-                if term_by_name:
-                    break
-            else:
-                print(f'Unable to find a window with title "{config.window_title}" after waiting. Giving up.', file=sys.stderr, flush=True)
-                sys.exit(1)
-
-            if len(term_by_name) != 1:
-                print(f'Multiple windows with title "{config.window_title}" detected. Please use --name to set an unique one.', file=sys.stderr, flush=True)
-                sys.exit(1)
-
-            term_by_name[0].command(f'mark {window_tag}')
-            show(term_by_name[0], i3, config)
+            parent = os.getppid()
+            term_by_ppid = find_related_windows(i3, parent, existing_window_ids)
+            # TODO we can probably support multiple windows now, though they will be placed on top of each other
+            match len(term_by_ppid):
+                case 0:
+                    print(f'Unable to find a window associated with PID "{parent}" after waiting. Giving up.', file=sys.stderr, flush=True)
+                    sys.exit(1)
+                case 1:
+                    term_by_ppid[0].command(f'mark {window_tag}')
+                    show(term_by_ppid[0], i3, config)
+                case _:
+                    print(f'Multiple windows associated with PID "{parent}" detected. TODO.', file=sys.stderr, flush=True)
+                    sys.exit(1)
 
 #region window manipulation code
 
@@ -423,6 +417,71 @@ def generate_window_tag(name: str) -> str:
     return '_bnqi3_' + name.lower().replace(' ', '_')
 
 #endregion
+
+# TODO consider reusing display?
+def match_pids_to_wids(wids: list[int]) -> dict[int, int]:
+    """
+    For a list of given window ids, queries the display for related process ids,
+    returns a dictionary where process ids are mapped to window ids.
+    """
+    display = Xlib.display.Display()
+    ret: dict[int, int] = {}
+
+    for wid in wids:
+        specs = [{"client": wid, "mask": Xlib.ext.res.LocalClientPIDMask}] # type: ignore
+        r = display.res_query_client_ids(specs)
+        for id in r.ids:
+            if id.spec.client > 0 and id.spec.mask == Xlib.ext.res.LocalClientPIDMask: # type: ignore
+                for value in id.value:
+                    ret[value] = wid
+
+    display.close()
+    return ret
+
+def launch_program(config: TypedConfig, arguments_to_pass: list[str]) -> NoReturn:
+        """
+        Launches the configured program with given arguments.
+        """
+        arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
+        if arguments_to_pass:
+            if (arguments_to_pass[0] == '--'):
+                arguments_to_pass = arguments_to_pass[1::]
+            arguments.extend(arguments_to_pass)
+        try:
+            os.execvp(config.terminal.executable, arguments)
+        except FileNotFoundError as e:
+            print(f'Unable to run "{config.terminal.executable}": {e.strerror}', file=sys.stderr, flush=True)
+            sys.exit(1)
+
+def find_related_windows(i3: i3ipc.Connection, pid: int, window_ids_to_skip: list[int]) -> list[i3ipc.Con]:
+    """
+    Returns a list of windows related to a given pid: the windows may be directly associated with it,
+    or has the pid as its (grand*)parent.
+    """
+    found = []
+    # wait for the terminal to appear for about a second
+    for _ in range(10):
+        time.sleep(0.1)
+
+        windows_to_check = [w for w in i3.get_tree().leaves() if w.window not in window_ids_to_skip] # type: ignore
+        data_dict = match_pids_to_wids([w.window for w in windows_to_check]) # type: ignore
+
+        for pid in data_dict.keys():
+            if pid == pid:
+                found = [w for w in windows_to_check if w.window == data_dict[pid]] # type: ignore
+                break
+            else:
+                if pid in [i.pid for i in psutil.Process(pid).parents()]:
+                    found = [w for w in windows_to_check if w.window == data_dict[pid]] # type: ignore
+                    break
+
+        if found:
+            break
+        else:
+            # skip the windows we unsuccessfully checked this iteration in the next one
+            window_ids_to_skip.extend([w.window for w in windows_to_check]) # type: ignore
+
+    return found
 
 if __name__ == '__main__':
     main(*get_args())
