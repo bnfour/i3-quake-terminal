@@ -11,6 +11,7 @@
 #region imports
 
 import argparse
+import hashlib
 import os
 import sys
 import time
@@ -143,14 +144,7 @@ class Region(object):
 
 #region definitions -> misc
 
-@dataclass
-class Terminal(object):
-    """Holds settings for a terminal used in this script"""
-    executable: str
-    title_command: str
-
-
-@dataclass
+@dataclass(frozen=True)
 class TypedConfig(object):
     """Holds typed settings for the script for ease of access"""
     size: SizeSettings
@@ -159,8 +153,6 @@ class TypedConfig(object):
     vertical_anchor: VerticalAlignment
     
     output: str
-    window_title: str
-    terminal: Terminal
     focus_first: bool
 
     @staticmethod
@@ -171,11 +163,9 @@ class TypedConfig(object):
         h_anchor = HorizontalAlignment.from_string(namespace.horizontal)
         v_anchor = VerticalAlignment.from_string(namespace.vertical)
         output = namespace.output
-        title = namespace.name
-        term = terminals[namespace.terminal]
         focus_first = namespace.focus_first
 
-        return TypedConfig(size, offset, h_anchor, v_anchor, output, title, term, focus_first)
+        return TypedConfig(size, offset, h_anchor, v_anchor, output, focus_first)
 
 #endregion
 
@@ -185,14 +175,6 @@ class TypedConfig(object):
 
 # TODO consider moving those outside of global scope
 
-# terminal emulators supported by the script
-terminals = {
-    # generic may work if the terminal does support -T,
-    # the proper way is to provide a definition for your favourite terminal emulator
-    'generic': Terminal('i3-sensible-terminal', '-T'),
-    'urxvt': Terminal('urxvt', '-title'),
-}
-
 # default settings for the script
 # the values that I use so so I can write less arguments ('-^)b
 defaults = TypedConfig(
@@ -201,8 +183,6 @@ defaults = TypedConfig(
     HorizontalAlignment.Centre,
     VerticalAlignment.Top,
     'main',
-    'The terminal',
-    terminals['urxvt'],
     False
 )
 
@@ -250,11 +230,6 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     # moving it in case it was open somewhere else
     parser.add_argument('--output', '-o', default=defaults.output,
         help='set the terminal window\'s output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output')
-    # user-friendly term names are not stored in defaults itself, so this is awkward
-    parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=[k for k, v in terminals.items() if v.executable == defaults.terminal.executable][0],
-        help='terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal')
-    parser.add_argument('--name', '-n', default=defaults.window_title,
-        help=f'set the terminal window name. Should be unique for the script to work')
 
     parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3 quake-like terminal {version}")
     parser.add_argument('--help', '-?', action='help', help="show this help message and exit")
@@ -271,7 +246,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     otherwise, creates a new one and shows it.
     """
     i3 = i3ipc.Connection()
-    window_tag = generate_window_tag(config.window_title)
+    window_tag = generate_window_tag(arguments_to_pass)
     term_by_tag = i3.get_tree().find_marked(window_tag)
     if term_by_tag:
         # TODO we can probably support multiple windows now, though they will be placed on top of each other
@@ -287,7 +262,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
 
         pid = os.fork()
         if pid != 0:
-            launch_program(config, arguments_to_pass)
+            launch_program(arguments_to_pass)
         else:
             parent = os.getppid()
             term_by_ppid = find_related_windows(i3, parent, existing_window_ids)
@@ -297,6 +272,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
                     print(f'Unable to find a window associated with PID "{parent}" after waiting. Giving up.', file=sys.stderr, flush=True)
                     sys.exit(1)
                 case 1:
+                    # TODO add 'move scratchpad' here as well so it still positions (with a visible teleport) if no rule set in i3?
                     term_by_ppid[0].command(f'mark {window_tag}')
                     show(term_by_ppid[0], i3, config)
                 case _:
@@ -409,12 +385,14 @@ def in_scratchpad(window: i3ipc.Con) -> bool:
     """Determines whether the provided window is off-screen in scratchpad"""
     return cast(str, window.ipc_data['output']) == '__i3'
 
-def generate_window_tag(name: str) -> str:
+def generate_window_tag(args: list[str]) -> str:
     """
-    Generates a window tag to use based on provided name.
+    Generates a window tag to use based on provided arguments.
     Adds _ to the start of the tag, so it is never shown.
     """
-    return '_bnqi3_' + name.lower().replace(' ', '_')
+    md5 = hashlib.md5('_'.join(args).encode('utf-8'), usedforsecurity=False)
+
+    return '_bnqi3_' + md5.hexdigest()
 
 #endregion
 
@@ -438,19 +416,21 @@ def match_pids_to_wids(wids: list[int]) -> dict[int, int]:
     display.close()
     return ret
 
-def launch_program(config: TypedConfig, arguments_to_pass: list[str]) -> NoReturn:
+def launch_program(arguments: list[str]) -> NoReturn:
         """
         Launches the configured program with given arguments.
         """
-        arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
-        if arguments_to_pass:
-            if (arguments_to_pass[0] == '--'):
-                arguments_to_pass = arguments_to_pass[1::]
-            arguments.extend(arguments_to_pass)
+        # remove the leading -- if present; it's a good idea to include it
+        if arguments and arguments[0] == '--':
+                arguments = arguments[1::]
+        # check if anything left to run
+        if not arguments:
+            print('No program to run provided. Use -- to separate script\'s options and the command to run.', file=sys.stderr, flush=True)
+            sys.exit(1)
         try:
-            os.execvp(config.terminal.executable, arguments)
+            os.execvp(arguments[0], arguments)
         except FileNotFoundError as e:
-            print(f'Unable to run "{config.terminal.executable}": {e.strerror}', file=sys.stderr, flush=True)
+            print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
             sys.exit(1)
 
 def find_related_windows(i3: i3ipc.Connection, pid: int, window_ids_to_skip: list[int]) -> list[i3ipc.Con]:
