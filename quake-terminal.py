@@ -193,7 +193,7 @@ defaults: Final = TypedConfig(
 
 #region argparse setup
 
-def float_with_min_value(arg) -> float:
+def float_with_min_value(arg: str) -> float:
     """
     A type function for argparse that makes sure the window search timeout
     is long enough to trigger the search at least once.
