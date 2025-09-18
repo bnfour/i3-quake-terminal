@@ -18,7 +18,7 @@ import time
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import cast, Callable, NoReturn
+from typing import cast, Callable, Final, NoReturn
 
 try:
     import i3ipc
@@ -30,7 +30,13 @@ except ImportError as e:
 
 #endregion
 
-version = 'almost 3'
+#region constants
+
+version: Final = 'almost 3'
+# in seconds
+SEARCH_INTERVAL: Final = 0.1
+
+#endregion
 
 #region definitions
 
@@ -150,9 +156,9 @@ class TypedConfig(object):
     extra_offset: Offset
     horizontal_anchor: HorizontalAlignment
     vertical_anchor: VerticalAlignment
-    
     output: str
     focus_first: bool
+    timeout: float
 
     @staticmethod
     def from_namespace(namespace: argparse.Namespace):
@@ -163,20 +169,22 @@ class TypedConfig(object):
         v_anchor = VerticalAlignment.from_string(namespace.vertical)
         output = namespace.output
         focus_first = namespace.focus_first
+        timeout = namespace.timeout
 
-        return TypedConfig(size, offset, h_anchor, v_anchor, output, focus_first)
+        return TypedConfig(size, offset, h_anchor, v_anchor, output, focus_first, timeout)
 
 
 # TODO consider moving those outside of global scope
 # default settings for the script
 # the values that I use so so I can write less arguments ('-^)b
-defaults = TypedConfig(
-    SizeSettings(1280, 720),
-    Offset(0, 0),
-    HorizontalAlignment.Centre,
-    VerticalAlignment.Top,
-    'main',
-    False
+defaults: Final = TypedConfig(
+    size=SizeSettings(1280, 720),
+    extra_offset=Offset(0, 0),
+    horizontal_anchor=HorizontalAlignment.Centre,
+    vertical_anchor=VerticalAlignment.Top,
+    output='main',
+    focus_first=False,
+    timeout=1
 )
 
 #endregion
@@ -184,6 +192,20 @@ defaults = TypedConfig(
 #endregion
 
 #region argparse setup
+
+def float_with_min_value(arg) -> float:
+    """
+    A type function for argparse that makes sure the window search timeout
+    is long enough to trigger the search at least once.
+    """
+    try:
+        f = float(arg)
+    except ValueError:
+        raise argparse.ArgumentTypeError("Argument must be a floating point number")
+    if f < SEARCH_INTERVAL:
+        raise argparse.ArgumentTypeError(f"Argument must be at least {SEARCH_INTERVAL}, or greater")
+    return f
+
 # TODO somehow suggest that this script requires a command to run
 def get_args() -> tuple[TypedConfig, list[str]]:
     """
@@ -218,8 +240,11 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=defaults.extra_offset.y,
         help='vertical offset for the terminal window, in pixels; positive values move down')
 
-    parser.add_argument('--focus-first', '-f', dest='focus_first', action="store_true",
+    parser.add_argument('--focus-first', '-f', dest='focus_first', action='store_true',
         help='if enabled, calling will focus unfocused visible terminal window instead of hiding it; focused terminal will be hidden')
+
+    parser.add_argument('--timeout', '-to', type=float_with_min_value, default=defaults.timeout,
+        help=f'amount of time in seconds to search for the created window before giving up, at least {SEARCH_INTERVAL}')
 
     # TODO (very maybe): implement a 'focused' keyword to open the terminal the output with the currently active workspace,
     # moving it in case it was open somewhere else
@@ -260,7 +285,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
             launch_program(arguments_to_pass)
         else:
             parent = os.getppid()
-            term_by_ppid = find_related_windows(i3, parent, existing_window_ids)
+            term_by_ppid = find_related_windows(i3, parent, existing_window_ids, config.timeout)
             # TODO we can probably support multiple windows now, though they will be placed on top of each other
             match len(term_by_ppid):
                 case 0:
@@ -399,7 +424,7 @@ def match_pids_to_wids(wids: list[int], display: Xlib.display.Display) -> dict[i
     ret: dict[int, int] = {}
 
     for wid in wids:
-        specs = [{"client": wid, "mask": Xlib.ext.res.LocalClientPIDMask}] # type: ignore
+        specs = [{'client': wid, 'mask': Xlib.ext.res.LocalClientPIDMask}] # type: ignore
         r = display.res_query_client_ids(specs)
         for id in r.ids:
             if id.spec.client > 0 and id.spec.mask == Xlib.ext.res.LocalClientPIDMask: # type: ignore
@@ -424,7 +449,7 @@ def launch_program(arguments: list[str]) -> NoReturn:
             print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
             sys.exit(1)
 
-def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: list[int]) -> list[i3ipc.Con]:
+def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: list[int], timeout: float) -> list[i3ipc.Con]:
     """
     Returns a list of windows related to a given pid: the windows may be directly associated with it,
     or has the pid as its (grand*)parent.
@@ -433,8 +458,8 @@ def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: 
     # reused in the loop
     display = Xlib.display.Display()
     # wait for the terminal to appear for about a second
-    for _ in range(10):
-        time.sleep(0.1)
+    for _ in range(int(timeout / SEARCH_INTERVAL)):
+        time.sleep(SEARCH_INTERVAL)
 
         windows_to_check = [w for w in i3.get_tree().leaves() if w.window not in window_ids_to_skip] # type: ignore
         data_dict = match_pids_to_wids([w.window for w in windows_to_check], display) # type: ignore
