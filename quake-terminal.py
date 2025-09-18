@@ -290,8 +290,10 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
             if len(windows_by_pid) > 1:
                 print('Warning: multiple windows detected. They will overlap at the same location.')
             for window in windows_by_pid:
-                # TODO add 'move scratchpad' here as well so it still positions (with a visible teleport) if no rule set in i3?
-                window.command(f'mark {window_tag}')
+                # 'move scratchpad' here is redundant if a rule to do so is set in the i3 config
+                # if not, it makes the script work on the first invocation, albeit with a visible teleport to the intended location
+                # (from the one it was created by default within the main window tree) (the config rule moves it before it's shown)
+                window.command(f'mark {window_tag}, move scratchpad')
                 show(window, i3, config)
 
 def launch_program(arguments: list[str]) -> NoReturn:
