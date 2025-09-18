@@ -267,14 +267,12 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     """
     i3 = i3ipc.Connection()
     window_tag = generate_window_tag(arguments_to_pass)
-    term_by_tag = i3.get_tree().find_marked(window_tag)
-    if term_by_tag:
-        # TODO we can probably support multiple windows now, though they will be placed on top of each other
-        if len(term_by_tag) != 1:
-            print(f'Multiple windows tagged "{window_tag}" detected. Please clarify.', file=sys.stderr, flush=True)
-            sys.exit(1)
-
-        toggle(term_by_tag[0], i3, config)
+    windows_by_tag = i3.get_tree().find_marked(window_tag)
+    if windows_by_tag:
+        if len(windows_by_tag) > 1:
+            print(f'Warning: multiple windows tagged "{window_tag}" detected. They will be placed overlapping at the same location..')
+        for window in windows_by_tag:
+            show(window, i3, config)
     else:
         # an optimization to not iterate through all existing windows,
         # we know the one(s) we're looking for do not exist yet
@@ -285,19 +283,33 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
             launch_program(arguments_to_pass)
         else:
             parent = os.getppid()
-            term_by_ppid = find_related_windows(i3, parent, existing_window_ids, config.timeout)
-            # TODO we can probably support multiple windows now, though they will be placed on top of each other
-            match len(term_by_ppid):
-                case 0:
-                    print(f'Unable to find a window associated with PID "{parent}" after waiting. Giving up.', file=sys.stderr, flush=True)
-                    sys.exit(1)
-                case 1:
-                    # TODO add 'move scratchpad' here as well so it still positions (with a visible teleport) if no rule set in i3?
-                    term_by_ppid[0].command(f'mark {window_tag}')
-                    show(term_by_ppid[0], i3, config)
-                case _:
-                    print(f'Multiple windows associated with PID "{parent}" detected. TODO.', file=sys.stderr, flush=True)
-                    sys.exit(1)
+            windows_by_pid = find_related_windows(i3, parent, existing_window_ids, config.timeout)
+            if not windows_by_pid:
+                print(f'Unable to find a window associated with PID "{parent}" after waiting. Giving up.', file=sys.stderr, flush=True)
+                sys.exit(1)
+            if len(windows_by_pid) > 1:
+                print('Warning: multiple windows detected. They will overlap at the same location.')
+            for window in windows_by_pid:
+                # TODO add 'move scratchpad' here as well so it still positions (with a visible teleport) if no rule set in i3?
+                window.command(f'mark {window_tag}')
+                show(window, i3, config)
+
+def launch_program(arguments: list[str]) -> NoReturn:
+        """
+        Launches the configured program with given arguments.
+        """
+        # remove the leading -- if present; it's a good idea to always include it
+        if arguments and arguments[0] == '--':
+                arguments = arguments[1::]
+        # check if anything left to run
+        if not arguments:
+            print('No program to run provided. Use -- to separate script\'s options and the command to run.', file=sys.stderr, flush=True)
+            sys.exit(1)
+        try:
+            os.execvp(arguments[0], arguments)
+        except FileNotFoundError as e:
+            print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
+            sys.exit(1)
 
 #region window manipulation code
 
@@ -416,6 +428,8 @@ def generate_window_tag(args: list[str]) -> str:
 
 #endregion
 
+#region X related
+
 def match_pids_to_wids(wids: list[int], display: Xlib.display.Display) -> dict[int, int]:
     """
     For a list of given window ids, queries the display for related process ids,
@@ -431,23 +445,6 @@ def match_pids_to_wids(wids: list[int], display: Xlib.display.Display) -> dict[i
                 for value in id.value:
                     ret[value] = wid
     return ret
-
-def launch_program(arguments: list[str]) -> NoReturn:
-        """
-        Launches the configured program with given arguments.
-        """
-        # remove the leading -- if present; it's a good idea to always include it
-        if arguments and arguments[0] == '--':
-                arguments = arguments[1::]
-        # check if anything left to run
-        if not arguments:
-            print('No program to run provided. Use -- to separate script\'s options and the command to run.', file=sys.stderr, flush=True)
-            sys.exit(1)
-        try:
-            os.execvp(arguments[0], arguments)
-        except FileNotFoundError as e:
-            print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
-            sys.exit(1)
 
 def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: list[int], timeout: float) -> list[i3ipc.Con]:
     """
@@ -476,6 +473,8 @@ def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: 
             window_ids_to_skip.extend([w.window for w in windows_to_check]) # type: ignore
     display.close()
     return found
+
+#endregion
 
 if __name__ == '__main__':
     main(*get_args())
