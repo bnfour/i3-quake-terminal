@@ -201,9 +201,9 @@ def float_with_min_value(arg) -> float:
     try:
         f = float(arg)
     except ValueError:
-        raise argparse.ArgumentTypeError("Argument must be a floating point number")
+        raise argparse.ArgumentTypeError("must be a floating point number")
     if f < SEARCH_INTERVAL:
-        raise argparse.ArgumentTypeError(f"Argument must be at least {SEARCH_INTERVAL}, or greater")
+        raise argparse.ArgumentTypeError(f"must be at least {SEARCH_INTERVAL}, or greater")
     return f
 
 # TODO somehow suggest that this script requires a command to run
