@@ -1,54 +1,69 @@
 # **Documentation for upcoming v3 in this branch coming soon™ — "some" things below are outdated**
 
 # i3-quake-terminal
-A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down terminal window toggleable by a configurable hotkey.
+A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down windows toggleable by a configurable hotkey.
 
 ![backgrounds are not included](readme-images/demo.avif)
 [pipes.sh](https://github.com/pipeseroni/pipes.sh) not included — it just shows restart after quitting (<kbd>q</kbd>) clearly.
 
 # Installation
-Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey) to launch it in your i3 config.
+Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey-required) to launch it in your i3 config.
 
 ## Requirements
-Requires `i3ipc` package ([PyPI](https://pypi.org/project/i3ipc/), [GitHub](https://github.com/altdesktop/i3ipc-python)).
+The following third party packages are required to run this script and must be installed:
+- `i3ipc` ([PyPI](https://pypi.org/project/i3ipc/), [GitHub](https://github.com/altdesktop/i3ipc-python))
+- `psutil` ([PyPI](https://pypi.org/project/psutil/), [GitHub](https://github.com/giampaolo/psutil))
+- `Xlib` ([PyPI](https://pypi.org/project/python-xlib/), [GitHub](https://github.com/python-xlib/python-xlib))
 
 Fellow Fedora enjoyers:  
-`sudo dnf install python3-i3ipc`
+`sudo dnf install python3-i3ipc python3-psutil python3-xlib`
 
-For other distros, consult your package manager repos, or install via `pip`:  
-`python -m pip install i3ipc`
+For other distros, check your package manager repos, or install via `pip`.
 
 # Usage
-The script creates a single sticky terminal window on specified output, toggleable via calling the script. The first call will show the window, the second call will hide it, and so on. If the window is but closed instead of using the script to hide it, the first subsequent call will create and show a new one.
+The script creates a single sticky window on specified output, toggleable via re-running the script with the same arguments — great for putting on a hotkey. The first call will show the window, the second call will hide it, and so on. If the window is closed instead of using the script to hide it, the first subsequent re-run will create and show a new one.
 
-This script can be used to provide a quickly accessible terminal window, or a `htop` instance as a task manager. Feel free to invent your own uses!
+The script can be used to quickly access:
+- Dropdown-like terminal window (the original use case, the script used to support terminal emulators only)
+- Task manager
+- Any other app you want to show and hide quickly:
+- - Password manager
+- - Music player
+- - A solitaire game?
+- - Anything else that creates a window ­— feel free to invent other uses!
 
 ## i3 configuration
-This script requires some configuration on i3's side to work properly. See [docs](https://i3wm.org/docs/userguide.html#configuring) for details.
+The script requires some configuration on i3's side to work properly.
 
-### Hotkey
+### Hotkey (required)
 Minimal configuration is to [add a keybind](https://i3wm.org/docs/userguide.html#keybindings) to launch the script.
 
-Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to launch the script with its [default settings](#default-settings):
+Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to use the script with its [default settings](#default-settings) to manage a window of my favorite terminal emulator:
 ```
-bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py
+bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py -- urxvt -title "The terminal"
 ```
+(the title is set to make it stand out from the other terminal windows, see next section)
 
-### Flickering
-To prevent terminal window first appearing in default position first and visibly teleporting to proper position, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to the config to move it to the scratchpad by default.
+### Anti-flickering (optional, but highly recommended)
+To prevent windows appearing in default position and visibly teleporting to proper position when first created, add a [`for_window` rule](https://i3wm.org/docs/userguide.html#for_window) to the config to move it to the scratchpad on creation.
 
-An example for default settings, an `urxvt` window called "The terminal":
+Continuing the example, an `urxvt` window called "The terminal" should have the following entry in i3 config:
 ```
 for_window [class="URxvt" title="The terminal"] move scratchpad
 ```
+Title filter skips all other `urxvt` windows not managed by the script. Title and class are only used to find the window on the first run; afterwards, they are tagged, and only the tag is used to manage it, so the title may be changed.
+
 Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
 
+>[!NOTE]
+>The script will work without this setup, but please do not skip this for a better experience.
+
 # Configuration
-The script accepts a set options to control the terminal window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box without any arguments (assuming you use `rxvt-unicode` as a terminal emulator).
+The script accepts a set options to control the window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box with just a command to run an app.
 
 ## Available settings
 Output of built-in help command:
-
+TODO outdated
 ```
 $ quake-terminal.py -?
 usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,middle,m,right,r}] [--vertical {top,t,centre,center,c,middle,m,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}]
@@ -126,73 +141,27 @@ In these demo images:
 - The green grid is 1280×720 rect centered inside the full 1920×1080 screen.  
 Its lines are 4px wide, so the inner 2px of lines are part of the inner rect.
 - The actual window is slightly taller because of its header.  
-Tt's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how window decorations work ¯\\\_(ツ)\_/¯)
+It's positioned so that its top left corner _including the decorations_ is at the top left corner of a rect of the specified size _not including the decorations._ (I can't say I completely understand how window decorations work ¯\\\_(ツ)\_/¯)
 
-The offsets can be used to move the window anywhere from the anchor point, including any other output it's not anchored to.
+The offsets can be used to move the window _anywhere_ from the anchor point, including any other output it's not anchored to.
 
 ### Other script options
 Not related to window's size or position.
 
 #### Focus behaviour
-By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
+By default, invoking the script when the associated window is visible on the screen will hide it regardless of its status. With `--focus-first` (`-f`) set, the window will be focused if it had no focus, and another subsequent invocation will hide it (assuming the focus did not move).
 
-#### Window title
-`--name` sets the title for the terminal emulator's window. It needs to be unique for the script to properly initialize. After the window was shown for the first time, its title can be changed freely.
+#### Timeout
+If an app takes a while to create a window, it may be necessary to extend the amount of time the script searches for a window to manage. The default value is 1 second. `--timeout` (`-to`) option can be used to set a custom timeout value greater or equal to 0.1 second (delay between window searches; the limit is there so it's done at least once).
 
-#### Terminal
-`--terminal` sets the terminal emulator app to call.
-
-This script only really supports [`rxvt-unicode`](https://software.schmorp.de/pkg/rxvt-unicode.html) (commonly referred to as `urxvt`) out of the box, as it's _the_ terminal emulator I use. The "generic" option might work for other terminal emulators if:
-- `i3-sensible-terminal` launches your terminal emulator
-- your terminal emulator supports `-T` as an argument to set window title
-
-<!-- TODO don't forget to update the line number on future updates -->
-Otherwise, the script should be extended to work with another terminal emulator. To add an entry for another terminal emulator, add an entry to the [`terminals` dict](https://github.com/bnfour/i3-quake-terminal/blob/main/quake-terminal.py#L186):
-```python
-terminals = {
-    # ...
-    # original for comparison
-    'urxvt': Terminal('urxvt', '-title'),
-    # add your own favourite terminal emulator
-    'user-friendly-name': Terminal('executable-name', 'arg-to-set-title')
-}
-```
-
-- `user-friendly-name` is used to set the terminal emulator name in script arguments; can be set to whatever
-- `executable-name` is the actual executable name
-- `arg-to-set-title` is the argument to set the title, with all leading dashes, if needed
-
-The script will invoke the terminal emulator like this:
-```
-executable-name arg-to-set-title "Actual title set by another argument" [other arguments to pass]
-```
-
+<!-- TODO move higher as this is now pretty much required -->
 ### Argument passing
-The script passes any arguments it did not recognize as its own to the terminal emulator as is. If you need to pass arguments that are also defined for this script, use `--` to separate script's and terminal's arguments.
-
->[!TIP]
->It's a good idea to separate these even if there are no conflicts.
-
-```
-// "urxvt -e pipes.sh -t 0" is a perfectly valid command by itself,
-// similar to the one used for the animated demo;
-// however, -t is also the script's argument for terminal to use;
-// "-w 1000" is here as a sample argument for the script
-
-$ quake-terminal.py -w 1000 -e pipes.sh -t 0
-... Error! The script complains about the unknown "0" terminal
-
-$ quake-terminal.py -w 1000 -- -e pipes.sh -t 0
-... just works™ -----------⬏
-```
 
 >[!WARNING]
-> The first instance of `--` is not passed to the terminal app to avoid unintended effects. If you _really_ need to pass over a literal `--` as the first argument, duplicate it in the script's command.
+> The first instance of `--` is not used in command creation. If you really need to run something literally named `--`, duplicate it in the script's command.
 
 ### Default settings
-With the default settings, the script will create a 1280×720px `urxvt` window named "The terminal" in the top middle of the main output. By default, if the window if visible (regardless of its focus status) it will be hidden on the second execution of the script.
-
-# Credits
+With the default settings, the script creates a 1280×720px window in the top middle of the main output. You still need to provide a command to run.
 
 ## Inspiration
 This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
