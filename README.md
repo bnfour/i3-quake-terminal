@@ -32,6 +32,9 @@ The script can be used to quickly access:
 - - A solitaire game?
 - - Anything else that creates a window ­— feel free to invent other uses!
 
+>[!IMPORTANT]
+>Please read at least the ["External command"](#external-command) section to learn how to use the script.
+
 ## i3 configuration
 The script requires some configuration on i3's side to work properly.
 
@@ -42,6 +45,7 @@ Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to use the script
 ```
 bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py -- urxvt -title "The terminal"
 ```
+(note the `--` separator between (omitted) script options and the actual command to run, see ["External command"](#external-command))  
 (the title is set to make it stand out from the other terminal windows, see next section)
 
 ### Anti-flickering (optional, but highly recommended)
@@ -53,23 +57,22 @@ for_window [class="URxvt" title="The terminal"] move scratchpad
 ```
 Title filter skips all other `urxvt` windows not managed by the script. Title and class are only used to find the window on the first run; afterwards, they are tagged, and only the tag is used to manage it, so the title may be changed.
 
-Adjust class and/or title as needed. Class name for your terminal emulator can be found using `xprop`.
+Adjust class and/or title as needed. Class names can be found using `xprop`.
 
->[!NOTE]
->The script will work without this setup, but please do not skip this for a better experience.
+>[!TIP]
+>While the script will work without this setup, please do not skip it for a better experience.
 
 # Configuration
 The script accepts a set options to control the window's properties and behaviour. There are reasonable [default values](#default-settings), so the script will work out of the box with just a command to run an app.
 
 ## Available settings
 Output of built-in help command:
-TODO outdated
 ```
 $ quake-terminal.py -?
-usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,middle,m,right,r}] [--vertical {top,t,centre,center,c,middle,m,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--output OUTPUT] [--terminal {generic,urxvt}]
-                         [--name NAME] [--version] [--help]
+usage: quake-terminal.py [--width WIDTH | --relative-width WIDTH_RATIO] [--height HEIGHT | --relative-height HEIGHT_RATIO] [--horizontal {left,l,centre,center,c,middle,m,right,r}] [--vertical {top,t,centre,center,c,middle,m,bottom,b}] [--offset-horizontal OFFSET_X] [--offset-vertical OFFSET_Y] [--focus-first] [--timeout TIMEOUT] [--output OUTPUT]
+                         [--version] [--help]
 
-A script to have one global terminal window toggleable by a hotkey.
+A script to have a window toggleable by a hotkey. Arguments not parsed as one of the script options below are used to construct the command to run. For best results, please use -- as the separator between script options and the command. This is mandatory if your command contains an argument with the same name as one of the script arguments.
 
 options:
   --width, -w WIDTH     set the terminal window width, in pixels (default: 1280)
@@ -87,18 +90,30 @@ options:
   --offset-vertical, -ov, -oy OFFSET_Y
                         vertical offset for the terminal window, in pixels; positive values move down (default: 0)
   --focus-first, -f     if enabled, calling will focus unfocused visible terminal window instead of hiding it; focused terminal will be hidden (default: False)
+  --timeout, -to TIMEOUT
+                        amount of time in seconds to search for the created window before giving up, at least 0.1 (default: 1)
   --output, -o OUTPUT   set the terminal window's output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output (default: main)
-  --terminal, -t {generic,urxvt}
-                        terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal (default: urxvt)
-  --name, -n NAME       set the terminal window name. Should be unique for the script to work (default: The terminal)
   --version, -v         show program's version number and exit
   --help, -?            show this help message and exit
 
-Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad
+To prevent the window flickering, please add an i3 rule to move it to the scratchpad, e.g: "for_window [class="YourApp"] move scratchpad". See https://github.com/bnfour/i3-quake-terminal for more detailed help.
 ```
 
 >[!NOTE]
 >`-h` is used as a shorthand for `--height`, so the short version of `--help` is `-?`.
+
+### External command
+You also need to specify a command for the script to run. It should create a window that will be managed by the script.
+
+Any arguments not recognized by argparse will be used to construct the command. `--` can be used to explicitly mark everything after it in as the command. This is the recommended and supported way to use this script (some commands may work without it, but you're on your own here).
+
+The way to invoke the script is:
+```
+./quake-terminal.py [script options] -- command to run
+```
+
+>[!WARNING]
+> The first instance of `--` is not used to construct the command. If you really need to run something literally named `--`, duplicate it in the script's command.
 
 ### Window sizing
 The window size can be set either as an absolute pixel value or as a multiplier of output's size for either of axes.
@@ -154,14 +169,8 @@ By default, invoking the script when the associated window is visible on the scr
 #### Timeout
 If an app takes a while to create a window, it may be necessary to extend the amount of time the script searches for a window to manage. The default value is 1 second. `--timeout` (`-to`) option can be used to set a custom timeout value greater or equal to 0.1 second (delay between window searches; the limit is there so it's done at least once).
 
-<!-- TODO move higher as this is now pretty much required -->
-### Argument passing
-
->[!WARNING]
-> The first instance of `--` is not used in command creation. If you really need to run something literally named `--`, duplicate it in the script's command.
-
 ### Default settings
-With the default settings, the script creates a 1280×720px window in the top middle of the main output. You still need to provide a command to run.
+With the default settings, the script creates a 1280×720px window in the top middle of the main output. You still need to [provide a command to run](#external-command).
 
 ## Inspiration
 This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
