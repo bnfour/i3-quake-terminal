@@ -3,7 +3,7 @@
 # a script for i3 to have one global terminal available on hotkey,
 # now with almost proper typing (as in "# type: ignore" interfacing with code outside of standard library)
 
-# requires python3-i3ipc package
+# requires python3-i3ipc, python3-psutil, python3-xlib packages
 
 # see https://github.com/bnfour/i3-quake-terminal for details,
 # MIT license
@@ -11,23 +11,32 @@
 #region imports
 
 import argparse
+import hashlib
 import os
 import sys
 import time
 
-from enum import Enum
 from dataclasses import dataclass
-from typing import cast, Callable
+from enum import Enum
+from typing import cast, Callable, Final, NoReturn
 
 try:
     import i3ipc
-except ImportError:
-    print('i3ipc module not found. Exiting.', file=sys.stderr, flush=True)
+    import psutil
+    import Xlib
+except ImportError as e:
+    print(f'{e.name} not found. Exiting.', file=sys.stderr, flush=True)
     sys.exit(1)
 
 #endregion
 
-version= '2.2'
+#region constants
+
+version: Final = '3.0'
+# in seconds
+SEARCH_INTERVAL: Final = 0.1
+
+#endregion
 
 #region definitions
 
@@ -138,27 +147,18 @@ class Region(object):
 
 #endregion
 
-#region definitions -> misc
+#region definitions -> config
 
-@dataclass
-class Terminal(object):
-    """Holds settings for a terminal used in this script"""
-    executable: str
-    title_command: str
-
-
-@dataclass
+@dataclass(frozen=True)
 class TypedConfig(object):
     """Holds typed settings for the script for ease of access"""
     size: SizeSettings
     extra_offset: Offset
     horizontal_anchor: HorizontalAlignment
     vertical_anchor: VerticalAlignment
-    
     output: str
-    window_title: str
-    terminal: Terminal
     focus_first: bool
+    timeout: float
 
     @staticmethod
     def from_namespace(namespace: argparse.Namespace):
@@ -168,53 +168,54 @@ class TypedConfig(object):
         h_anchor = HorizontalAlignment.from_string(namespace.horizontal)
         v_anchor = VerticalAlignment.from_string(namespace.vertical)
         output = namespace.output
-        title = namespace.name
-        term = terminals[namespace.terminal]
         focus_first = namespace.focus_first
+        timeout = namespace.timeout
 
-        return TypedConfig(size, offset, h_anchor, v_anchor, output, title, term, focus_first)
+        return TypedConfig(size, offset, h_anchor, v_anchor, output, focus_first, timeout)
 
-#endregion
-
-#endregion
-
-#region configuration
 
 # TODO consider moving those outside of global scope
-
-# terminal emulators supported by the script
-terminals = {
-    # generic may work if the terminal does support -T,
-    # the proper way is to provide a definition for your favourite terminal emulator
-    'generic': Terminal('i3-sensible-terminal', '-T'),
-    'urxvt': Terminal('urxvt', '-title'),
-}
-
 # default settings for the script
 # the values that I use so so I can write less arguments ('-^)b
-defaults = TypedConfig(
-    SizeSettings(1280, 720),
-    Offset(0, 0),
-    HorizontalAlignment.Centre,
-    VerticalAlignment.Top,
-    'main',
-    'The terminal',
-    terminals['urxvt'],
-    False
+defaults: Final = TypedConfig(
+    size=SizeSettings(1280, 720),
+    extra_offset=Offset(0, 0),
+    horizontal_anchor=HorizontalAlignment.Centre,
+    vertical_anchor=VerticalAlignment.Top,
+    output='main',
+    focus_first=False,
+    timeout=1
 )
+
+#endregion
 
 #endregion
 
 #region argparse setup
 
+def float_with_min_value(arg: str) -> float:
+    """
+    A type function for argparse that makes sure the window search timeout
+    is long enough to trigger the search at least once.
+    """
+    try:
+        f = float(arg)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a floating point number")
+    if f < SEARCH_INTERVAL:
+        raise argparse.ArgumentTypeError(f"must be at least {SEARCH_INTERVAL}, or greater")
+    return f
+
+# TODO somehow suggest that this script requires a command to run in the option list
 def get_args() -> tuple[TypedConfig, list[str]]:
     """
     Returns parsed arguments for the script itself,
     and a list of unrecognized arguments to be passed to the terminal emulator as is.
     """
     parser = argparse.ArgumentParser(add_help=False,
-                description='A script to have one global terminal window toggleable by a hotkey.',
-                epilog='Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad',
+                description='A script to have a window toggleable by a hotkey. Arguments not parsed as one of the script options below are used to construct the command to run.'
+                    + ' For best results, please use -- as the separator between script options and the command. This is mandatory if your command contains an argument with the same name as one of the script arguments.',
+                epilog='To prevent the window flickering, please add an i3 rule to move it to the scratchpad, e.g: "for_window [class="YourApp"] move scratchpad". See https://github.com/bnfour/i3-quake-terminal for more detailed help.',
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     width_group = parser.add_mutually_exclusive_group()
@@ -240,20 +241,18 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     parser.add_argument('--offset-vertical', '-ov', '-oy', type=int, dest='offset_y', default=defaults.extra_offset.y,
         help='vertical offset for the terminal window, in pixels; positive values move down')
 
-    parser.add_argument('--focus-first', '-f', dest='focus_first', action="store_true",
+    parser.add_argument('--focus-first', '-f', dest='focus_first', action='store_true',
         help='if enabled, calling will focus unfocused visible terminal window instead of hiding it; focused terminal will be hidden')
+
+    parser.add_argument('--timeout', '-to', type=float_with_min_value, default=defaults.timeout,
+        help=f'amount of time in seconds to search for the created window before giving up, at least {SEARCH_INTERVAL}')
 
     # TODO (very maybe): implement a 'focused' keyword to open the terminal the output with the currently active workspace,
     # moving it in case it was open somewhere else
     parser.add_argument('--output', '-o', default=defaults.output,
         help='set the terminal window\'s output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output')
-    # user-friendly term names are not stored in defaults itself, so this is awkward
-    parser.add_argument('--terminal', '-t', choices=terminals.keys(), default=[k for k, v in terminals.items() if v.executable == defaults.terminal.executable][0],
-        help='terminal to use; "generic" calls "i3-sensible-terminal -T NAME", may or may not work depending on terminal')
-    parser.add_argument('--name', '-n', default=defaults.window_title,
-        help=f'set the terminal window name. Should be unique for the script to work')
 
-    parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3 quake-like terminal {version}")
+    parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3-quake-terminal {version}")
     parser.add_argument('--help', '-?', action='help', help="show this help message and exit")
 
     namespace, to_pass = parser.parse_known_args()
@@ -268,46 +267,53 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
     otherwise, creates a new one and shows it.
     """
     i3 = i3ipc.Connection()
-    window_tag = generate_window_tag(config.window_title)
-
-    term_by_tag = i3.get_tree().find_marked(window_tag)
-    if term_by_tag:
-        if len(term_by_tag) != 1:
-            print(f'Multiple windows tagged "{window_tag}" detected. Please clarify.', file=sys.stderr, flush=True)
-            sys.exit(1)
-
-        toggle(term_by_tag[0], i3, config)
+    window_tag = generate_window_tag(arguments_to_pass)
+    windows_by_tag = i3.get_tree().find_marked(window_tag)
+    if windows_by_tag:
+        if len(windows_by_tag) > 1:
+            print(f'Warning: multiple windows tagged "{window_tag}" detected. They will be placed overlapping at the same location..')
+        for window in windows_by_tag:
+            show(window, i3, config)
     else:
+        # an optimization to not iterate through all existing windows,
+        # we know the one(s) we're looking for do not exist yet
+        existing_window_ids: list[int] = [w.window for w in i3.get_tree().leaves()] # type: ignore
+
+        # TODO can check the args to pass here instead of launch_program to avoid forking if nothing to run
         pid = os.fork()
         if pid != 0:
-            arguments = [config.terminal.executable, config.terminal.title_command, config.window_title,]
-            if arguments_to_pass:
-                if (arguments_to_pass[0] == '--'):
-                    arguments_to_pass = arguments_to_pass[1::]
-                arguments.extend(arguments_to_pass)
-            try:
-                os.execvp(config.terminal.executable, arguments)
-            except FileNotFoundError as e:
-                print(f'Unable to run "{config.terminal.executable}": {e.strerror}', file=sys.stderr, flush=True)
-                sys.exit(1)
+            launch_program(arguments_to_pass)
         else:
-            term_by_name = None
-            # wait for the terminal to appear for a second
-            for _ in range(10):
-                time.sleep(0.1)
-                term_by_name = i3.get_tree().find_titled(config.window_title)
-                if term_by_name:
-                    break
-            else:
-                print(f'Unable to find a window with title "{config.window_title}" after waiting. Giving up.', file=sys.stderr, flush=True)
+            parent = os.getppid()
+            windows_by_pid = find_related_windows(i3, parent, existing_window_ids, config.timeout)
+            if not windows_by_pid:
+                print(f'Unable to find a window associated with PID "{parent}" after waiting. Giving up.', file=sys.stderr, flush=True)
                 sys.exit(1)
+            if len(windows_by_pid) > 1:
+                print('Warning: multiple windows detected. They will overlap at the same location.')
+            for window in windows_by_pid:
+                # 'move scratchpad' here is redundant if a rule to do so is set in the i3 config
+                # if not, it makes the script work on the first invocation, albeit with a visible teleport to the intended location
+                # (from the one it was created by default within the main window tree) (the config rule moves it before it's shown)
+                window.command(f'mark {window_tag}, move scratchpad')
+                show(window, i3, config)
 
-            if len(term_by_name) != 1:
-                print(f'Multiple windows with title "{config.window_title}" detected. Please use --name to set an unique one.', file=sys.stderr, flush=True)
-                sys.exit(1)
-
-            term_by_name[0].command(f'mark {window_tag}')
-            show(term_by_name[0], i3, config)
+def launch_program(arguments: list[str]) -> NoReturn:
+        """
+        Launches the configured program with given arguments.
+        """
+        # remove the leading -- if present; it's a good idea to always include it
+        if arguments and arguments[0] == '--':
+                arguments = arguments[1::]
+        # check if anything left to run
+        if not arguments:
+            print('No program to run provided. Use -- to separate script options and the command to run.', file=sys.stderr, flush=True)
+            sys.exit(1)
+        try:
+            os.execvp(arguments[0], arguments)
+        except FileNotFoundError as e:
+            print(f'Unable to run "{arguments[0]}": {e.strerror}', file=sys.stderr, flush=True)
+            sys.exit(1)
 
 #region window manipulation code
 
@@ -415,12 +421,62 @@ def in_scratchpad(window: i3ipc.Con) -> bool:
     """Determines whether the provided window is off-screen in scratchpad"""
     return cast(str, window.ipc_data['output']) == '__i3'
 
-def generate_window_tag(name: str) -> str:
+def generate_window_tag(args: list[str]) -> str:
     """
-    Generates a window tag to use based on provided name.
+    Generates a window tag to use based on provided arguments.
     Adds _ to the start of the tag, so it is never shown.
     """
-    return '_bnqi3_' + name.lower().replace(' ', '_')
+    md5 = hashlib.md5('_'.join(args).encode('utf-8'), usedforsecurity=False)
+
+    return '_bnqi3_' + md5.hexdigest()
+
+#endregion
+
+#region X related
+
+def match_pids_to_wids(wids: list[int], display: Xlib.display.Display) -> dict[int, int]:
+    """
+    For a list of given window ids, queries the display for related process ids,
+    returns a dictionary where process ids are mapped to window ids.
+    """
+    ret: dict[int, int] = {}
+
+    for wid in wids:
+        specs = [{'client': wid, 'mask': Xlib.ext.res.LocalClientPIDMask}] # type: ignore
+        r = display.res_query_client_ids(specs)
+        for id in r.ids:
+            if id.spec.client > 0 and id.spec.mask == Xlib.ext.res.LocalClientPIDMask: # type: ignore
+                for value in id.value:
+                    ret[value] = wid
+    return ret
+
+def find_related_windows(i3: i3ipc.Connection, parent: int, window_ids_to_skip: list[int], timeout: float) -> list[i3ipc.Con]:
+    """
+    Returns a list of windows related to a given pid: the windows may be directly associated with it,
+    or has the pid as its (grand*)parent.
+    """
+    found = []
+    # reused in the loop
+    display = Xlib.display.Display()
+    # wait for the terminal to appear for about a second
+    for _ in range(int(timeout / SEARCH_INTERVAL)):
+        time.sleep(SEARCH_INTERVAL)
+
+        windows_to_check = [w for w in i3.get_tree().leaves() if w.window not in window_ids_to_skip] # type: ignore
+        data_dict = match_pids_to_wids([w.window for w in windows_to_check], display) # type: ignore
+
+        for pid in data_dict.keys():
+            if pid == parent or parent in [i.pid for i in psutil.Process(pid).parents()]:
+                found = [w for w in windows_to_check if w.window == data_dict[pid]] # type: ignore
+                break
+
+        if found:
+            break
+        else:
+            # skip the windows we unsuccessfully checked this iteration in the next one
+            window_ids_to_skip.extend([w.window for w in windows_to_check]) # type: ignore
+    display.close()
+    return found
 
 #endregion
 
