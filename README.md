@@ -4,6 +4,8 @@ A companion script for [i3 window manager](https://i3wm.org/) to have a global d
 ![backgrounds are not included](readme-images/demo.avif)
 [pipes.sh](https://github.com/pipeseroni/pipes.sh) not included — it just shows restart after quitting (<kbd>q</kbd>) clearly.
 
+The current name is legacy from the times the script only supported terminal windows.
+
 # Installation
 Just drop `quake-terminal.py` somewhere and [create a keybind](#hotkey-required) to launch it in your i3 config.
 
@@ -170,12 +172,70 @@ If an app takes a while to create a window, it may be necessary to extend the am
 ### Default settings
 With the default settings, the script creates a 1280×720px window in the top middle of the main output. You still need to [provide a command to run](#external-command).
 
-## Inspiration
+# Inspiration
 This script is inspired by https://github.com/NearHuscarl/i3-quake. If this script is not exactly what you're looking for, check it out as well!
 
-## Images
+# Images
 The wallpaper is at least claimed to be an OC [in this reddit post](https://redd.it/3vv1c6).  
 Terminal background image is Noël from Sora no Woto.
+
+# History
+This script went through the series of changes, from a quick and dirty prototype to a more robust and documented helper script. I still use it daily.
+
+Here's the brief history by versioned releases.
+
+## Version 1
+July 2022.
+
+The first version that is not even published here because it's very scuffed.
+
+It had very limited support for launching apps: only `urxvt` was supported, and the only option to pass to it was `--background-expr`. You can also see just how small it was from 2.0's changelog.
+
+## Version 2
+June 2023–August 2025.
+
+The public version. Generalization of the previous version to be useful outside of my setup. Still worked only with terminals (and only with `urxvt` out of the box).
+
+### 2.0
+June 2023.
+
+Initial generalization rewrite (was 1.1 initially in my dotfiles, but promoted to a new major version due to the scale of the changes):
+- Added short argument names (v1 only had long ones)
+- Initial support for passing all unrecognized arguments to the terminal instead of a dedicated background argument
+- Added `--name` option to set up the terminal title (it was hardcoded in version 1)
+- Added `--terminal` option to optionally support terminals other than `urxvt`
+- Added support for relative sizing
+- Added offsets to window placement
+- Better error handling (as opposed to "almost none" before)
+
+### 2.1
+July 2024.
+
+Small bugfix because I accidentally noticed a lot of the same atoms on the window:
+- no longer adds a new `_NET_WM_STATE_STICKY` atom to the window state every time the terminal is open
+
+### 2.2
+August 2025.
+
+Another update where I just wanted to introduce typing, but ended up fixing other things:
+- Introduced typing throughout the script
+- Alternative names for the center anchor
+- Fixed horizontal center and bottom anchors being off since the first release
+- Better argument handling because I learned that `--` is a thing in argparse
+
+## Version 3
+September 2025–current.
+
+The major update that supports any windows, not just terminal emulators.
+
+### 3.0
+October 2025.
+
+- Support for arbitrary windows, the executable name is now required
+- Removed `--terminal` option
+- Removed `--name` option, the initial search is now done by pid instead
+- Added `--timeout` option because some non-terminals took longer than 1 second to start during testing
+- No longer errors on multiple windows matching the search criteria; this is still unsupported
 
 # License
 MIT
