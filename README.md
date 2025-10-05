@@ -1,5 +1,3 @@
-# **Documentation for upcoming v3 in this branch coming soon™ — "some" things below are outdated**
-
 # i3-quake-terminal
 A companion script for [i3 window manager](https://i3wm.org/) to have a global drop-down windows toggleable by a configurable hotkey.
 
@@ -41,9 +39,9 @@ The script requires some configuration on i3's side to work properly.
 ### Hotkey (required)
 Minimal configuration is to [add a keybind](https://i3wm.org/docs/userguide.html#keybindings) to launch the script.
 
-Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to use the script with its [default settings](#default-settings) to manage a window of my favorite terminal emulator:
+Here's an example setting <kbd>Mod</kbd>+<kbd>\`</kbd> release to use the script with its [default settings](#default-settings) to manage a window of my favorite terminal emulator as seen on the demo image:
 ```
-bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py -- urxvt -title "The terminal"
+bindsym $mod+grave --release exec --no-startup-id /path/to/quake-terminal.py -- urxvt -title "The terminal" -e pipes.sh -p 4 -t 0 -r 5000
 ```
 (note the `--` separator between (omitted) script options and the actual command to run, see ["External command"](#external-command))  
 (the title is set to make it stand out from the other terminal windows, see next section)
