@@ -32,7 +32,7 @@ except ImportError as e:
 
 #region constants
 
-version: Final = 'almost 3'
+version: Final = '3.0'
 # in seconds
 SEARCH_INTERVAL: Final = 0.1
 
@@ -252,7 +252,7 @@ def get_args() -> tuple[TypedConfig, list[str]]:
     parser.add_argument('--output', '-o', default=defaults.output,
         help='set the terminal window\'s output. Use its name as it appears in xrandr (e.g. DP-2) or main for primary output')
 
-    parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3 quake-like terminal {version}")
+    parser.add_argument('--version', '-v', action='version', version=f"bnfour's i3-quake-terminal {version}")
     parser.add_argument('--help', '-?', action='help', help="show this help message and exit")
 
     namespace, to_pass = parser.parse_known_args()
