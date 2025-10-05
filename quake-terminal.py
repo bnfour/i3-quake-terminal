@@ -206,15 +206,16 @@ def float_with_min_value(arg: str) -> float:
         raise argparse.ArgumentTypeError(f"must be at least {SEARCH_INTERVAL}, or greater")
     return f
 
-# TODO somehow suggest that this script requires a command to run
+# TODO somehow suggest that this script requires a command to run in the option list
 def get_args() -> tuple[TypedConfig, list[str]]:
     """
     Returns parsed arguments for the script itself,
     and a list of unrecognized arguments to be passed to the terminal emulator as is.
     """
     parser = argparse.ArgumentParser(add_help=False,
-                description='A script to have one global terminal window toggleable by a hotkey.',
-                epilog='Any unrecognized arguments are passed as is to the terminal emulator. To prevent flickering, please add an i3 rule to move created terminal windows to the scratchpad, for example: for_window [class="URxvt" title="The terminal"] move scratchpad',
+                description='A script to have a window toggleable by a hotkey. Arguments not parsed as one of the script options below are used to construct the command to run.'
+                    + ' For best results, please use -- as the separator between script options and the command. This is mandatory if your command contains an argument with the same name as one of the script arguments.',
+                epilog='To prevent the window flickering, please add an i3 rule to move it to the scratchpad, e.g: "for_window [class="YourApp"] move scratchpad". See https://github.com/bnfour/i3-quake-terminal for more detailed help.',
                 formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     width_group = parser.add_mutually_exclusive_group()
@@ -278,6 +279,7 @@ def main(config: TypedConfig, arguments_to_pass: list[str]):
         # we know the one(s) we're looking for do not exist yet
         existing_window_ids: list[int] = [w.window for w in i3.get_tree().leaves()] # type: ignore
 
+        # TODO can check the args to pass here instead of launch_program to avoid forking if nothing to run
         pid = os.fork()
         if pid != 0:
             launch_program(arguments_to_pass)
@@ -305,7 +307,7 @@ def launch_program(arguments: list[str]) -> NoReturn:
                 arguments = arguments[1::]
         # check if anything left to run
         if not arguments:
-            print('No program to run provided. Use -- to separate script\'s options and the command to run.', file=sys.stderr, flush=True)
+            print('No program to run provided. Use -- to separate script options and the command to run.', file=sys.stderr, flush=True)
             sys.exit(1)
         try:
             os.execvp(arguments[0], arguments)
